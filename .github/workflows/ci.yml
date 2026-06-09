@@ -14,3 +14,5 @@ jobs:
         run: swift build
       - name: Test (synthetic fixtures only — no copyrighted assets on CI)
         run: swift test
+      - name: Build .saver bundle
+        run: ./Scripts/build-saver.sh

@@ -12,16 +12,38 @@ packaged both as a `.saver` screensaver bundle and a standalone demo app.
 
 ## Status
 
-Work in progress. See the issue tracker for the current phase.
+All engine phases complete — the full screensaver works.
 
 - [x] Asset extraction & verification (`jctool verify`)
-- [x] Resource layer (MAP/001 containers, RLE + LZW decompression, SCR/BMP/PAL/TTM/ADS parsers)
-- [ ] Software renderer + sprite export (`jctool extract --png`)
-- [ ] TTM animation interpreter + demo app
-- [ ] ADS scene scheduler + sound
-- [ ] Island, walking, story progression
-- [ ] `.saver` bundle with Sonoma+ lifecycle workarounds
-- [ ] Signed/notarized releases
+- [x] Resource layer (MAP/001 containers, RLE + LZW decompression, SCR/BMP/PAL/TTM/ADS parsers — byte-identical dumps vs. the reference C engine)
+- [x] Software renderer + sprite export (`jctool extract --png`)
+- [x] TTM animation interpreter (all 41 scripts play to completion)
+- [x] ADS scene scheduler + sound
+- [x] Island, walking, story progression (3-seed × 1M-tick soak tested)
+- [x] `.saver` bundle with Sonoma+ lifecycle workarounds
+- [ ] Signed/notarized releases (ad-hoc signed artifacts for now)
+
+## Install the screensaver
+
+```sh
+./Scripts/build-saver.sh --install
+```
+
+Then open **System Settings → Screen Saver**, click **Show All** under
+"Other", and select **Johnny Castaway**. Click **Options…** to import your
+RESOURCE.MAP/RESOURCE.001 (or drop them in
+`~/Library/Containers/com.apple.ScreenSaver.Engine.legacyScreenSaver/Data/Library/Application Support/JohnnyCastaway/`).
+
+## Watch it in a window
+
+```sh
+swift run -c release JohnnyDemo            # full story mode
+swift run -c release JohnnyDemo list       # list scenes
+swift run -c release JohnnyDemo ads FISHING.ADS 1 --island
+swift run -c release JohnnyDemo ttm MJJOG.TTM
+```
+
+Keys: Space = pause · Return = single-step · M = 50× speed · Q = quit.
 
 ## You must supply the original game files
 

@@ -1,0 +1,44 @@
+name: Release
+
+on:
+  push:
+    tags: ["v*"]
+
+jobs:
+  build-saver:
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build .saver (ad-hoc signed)
+        run: ./Scripts/build-saver.sh
+
+      # When Developer ID secrets are configured, sign + notarize:
+      #   CODESIGN_ID, NOTARY_APPLE_ID, NOTARY_TEAM_ID, NOTARY_PASSWORD
+      - name: Notarize
+        if: ${{ vars.CODESIGN_ID != '' }}
+        env:
+          CODESIGN_ID: ${{ vars.CODESIGN_ID }}
+        run: |
+          codesign --force --deep --options runtime --sign "$CODESIGN_ID" dist/JohnnyCastaway.saver
+          ditto -c -k --keepParent dist/JohnnyCastaway.saver dist/JohnnyCastaway.saver.zip
+          xcrun notarytool submit dist/JohnnyCastaway.saver.zip \
+            --apple-id "${{ secrets.NOTARY_APPLE_ID }}" \
+            --team-id "${{ secrets.NOTARY_TEAM_ID }}" \
+            --password "${{ secrets.NOTARY_PASSWORD }}" --wait
+          xcrun stapler staple dist/JohnnyCastaway.saver
+
+      - name: Zip artifact
+        run: ditto -c -k --keepParent dist/JohnnyCastaway.saver dist/JohnnyCastaway-${{ github.ref_name }}.zip
+
+      - name: Create release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: dist/JohnnyCastaway-${{ github.ref_name }}.zip
+          body: |
+            JohnnyCastaway.saver for macOS 14+.
+
+            **You must supply your own RESOURCE.MAP / RESOURCE.001** from an
+            original copy of the screensaver — see the README. If the build is
+            not notarized, right-click → Open or strip quarantine:
+            `xattr -dr com.apple.quarantine JohnnyCastaway.saver`
