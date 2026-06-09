@@ -169,7 +169,8 @@ public final class JohnnyCastawayView: ScreenSaverView, FramePresenter {
                 .paragraphStyle: style,
             ]
             let str = NSAttributedString(string: text, attributes: attrs)
-            let bounds = str.boundingRect(with: rect.size)
+            let bounds = str.boundingRect(
+                with: rect.size, options: [.usesLineFragmentOrigin])
             str.draw(in: NSRect(
                 x: 0, y: (rect.height - bounds.height) / 2,
                 width: rect.width, height: bounds.height))
