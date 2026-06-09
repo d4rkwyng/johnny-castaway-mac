@@ -13,8 +13,8 @@
 
 import AppKit
 import JohnnyEngine
+import JohnnyEngineAppKit
 
-let assetPath = ProcessInfo.processInfo.environment["JC_ASSET_DIR"] ?? "Assets"
 let arguments = Array(CommandLine.arguments.dropFirst())
 
 func fail(_ message: String) -> Never {
@@ -22,8 +22,12 @@ func fail(_ message: String) -> Never {
     exit(1)
 }
 
-guard let library = try? ResourceLibrary(directory: URL(fileURLWithPath: assetPath)) else {
-    fail("could not load RESOURCE.MAP/RESOURCE.001 from '\(assetPath)' (set JC_ASSET_DIR)")
+let localAssets = URL(fileURLWithPath: "Assets")
+let assetDir = AssetLocator.find()
+    ?? (AssetLocator.containsAssets(localAssets) ? localAssets : nil)
+
+guard let assetDir, let library = try? ResourceLibrary(directory: assetDir) else {
+    fail("could not find RESOURCE.MAP/RESOURCE.001 (set JC_ASSET_DIR or put them in ./Assets)")
 }
 
 if arguments.first == "list" {
@@ -73,24 +77,10 @@ final class FrameView: NSView, FramePresenter {
     required init?(coder: NSCoder) { fatalError() }
 
     func present(_ frame: [Pixel]) {
-        let image = Self.makeImage(frame)
+        let image = FrameImage.make(frame)
         DispatchQueue.main.async { [weak self] in
             self?.layer?.contents = image
         }
-    }
-
-    static func makeImage(_ pixels: [Pixel]) -> CGImage? {
-        let data = pixels.withUnsafeBytes { Data($0) }
-        guard let provider = CGDataProvider(data: data as CFData) else { return nil }
-        return CGImage(
-            width: 640, height: 480,
-            bitsPerComponent: 8, bitsPerPixel: 32, bytesPerRow: 640 * 4,
-            space: CGColorSpace(name: CGColorSpace.sRGB)!,
-            bitmapInfo: CGBitmapInfo(
-                rawValue: CGImageAlphaInfo.noneSkipLast.rawValue
-                    | CGBitmapInfo.byteOrder32Big.rawValue),
-            provider: provider, decode: nil, shouldInterpolate: false,
-            intent: .defaultIntent)
     }
 }
 
@@ -99,6 +89,7 @@ final class FrameView: NSView, FramePresenter {
 final class DemoAppDelegate: NSObject, NSApplicationDelegate {
     let mode: DemoMode
     let library: ResourceLibrary
+    let soundPlayer: WavSamplePlayer
     var window: NSWindow!
     var frameView: FrameView!
     let engineClock = RealTimeClock()
@@ -106,9 +97,10 @@ final class DemoAppDelegate: NSObject, NSApplicationDelegate {
     var paused = false
     var maxSpeed = false
 
-    init(mode: DemoMode, library: ResourceLibrary) {
+    init(mode: DemoMode, library: ResourceLibrary, soundPlayer: WavSamplePlayer) {
         self.mode = mode
         self.library = library
+        self.soundPlayer = soundPlayer
     }
 
     func applicationDidFinishLaunching(_ notification: Notification) {
@@ -158,7 +150,8 @@ final class DemoAppDelegate: NSObject, NSApplicationDelegate {
 
     func startEngine() {
         let engine = Engine(
-            library: library, clock: engineClock, presenter: frameView)
+            library: library, clock: engineClock, presenter: frameView,
+            sound: soundPlayer)
         let mode = self.mode
 
         let thread = Thread {
@@ -193,6 +186,8 @@ final class DemoAppDelegate: NSObject, NSApplicationDelegate {
 
 let app = NSApplication.shared
 app.setActivationPolicy(.regular)
-let delegate = DemoAppDelegate(mode: mode, library: library)
+let delegate = DemoAppDelegate(
+    mode: mode, library: library,
+    soundPlayer: WavSamplePlayer(directory: assetDir))
 app.delegate = delegate
 app.run()

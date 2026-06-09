@@ -23,11 +23,19 @@ let package = Package(
             dependencies: ["JohnnyEngine"]
         ),
 
+        // AppKit/AVFoundation glue shared by the demo app and the
+        // screensaver: frame→CGImage bridging, WAV sample playback,
+        // asset directory discovery/import.
+        .target(
+            name: "JohnnyEngineAppKit",
+            dependencies: ["JohnnyEngine"]
+        ),
+
         // Windowed demo/debug app: play a single TTM or ADS scene with
         // pause/step/speed controls. `swift run JohnnyDemo help`.
         .executableTarget(
             name: "JohnnyDemo",
-            dependencies: ["JohnnyEngine"]
+            dependencies: ["JohnnyEngine", "JohnnyEngineAppKit"]
         ),
 
         // CI-safe unit tests using synthetic fixtures (no copyrighted bytes).
