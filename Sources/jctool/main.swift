@@ -16,11 +16,14 @@ let knownChecksums: [String: (size: Int, md5: String)] = [
 
 func usage() -> Never {
     print("""
-    usage: jctool <command> <asset-dir>
+    usage: jctool <command> <asset-dir> [options]
 
     commands:
-      verify <dir>   check RESOURCE.MAP / RESOURCE.001 sizes + MD5s and parse them
-      dump <dir>     parse and list every resource with details
+      verify <dir>                 check RESOURCE.MAP / RESOURCE.001 sizes + MD5s and parse them
+      dump <dir>                   parse and list every resource with details
+      extract <dir> [--png|--xpm] [--out <outdir>]
+                                   extract backgrounds/sprites (PNG default; XPM matches
+                                   jc_reborn's dump output) + TTM/ADS disassembly
     """)
     exit(2)
 }
@@ -104,6 +107,15 @@ do {
     switch args[1] {
     case "verify": try verify(directory: dir)
     case "dump": try dump(directory: dir)
+    case "extract":
+        let format: ExtractFormat = args.contains("--xpm") ? .xpm : .png
+        var outDir = URL(fileURLWithPath: "extracted")
+        if let i = args.firstIndex(of: "--out"), i + 1 < args.count {
+            outDir = URL(fileURLWithPath: args[i + 1])
+        }
+        try extract(directory: dir, outDir: outDir, format: format)
+    case "goldens":
+        try printGoldens(directory: dir)
     default: usage()
     }
 } catch {
