@@ -116,6 +116,8 @@ do {
         try extract(directory: dir, outDir: outDir, format: format)
     case "goldens":
         try printGoldens(directory: dir)
+    case "render":
+        try render(directory: dir, arguments: Array(args.dropFirst(3)))
     default: usage()
     }
 } catch {

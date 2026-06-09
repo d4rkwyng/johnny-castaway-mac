@@ -9,6 +9,7 @@ let package = Package(
     products: [
         .library(name: "JohnnyEngine", targets: ["JohnnyEngine"]),
         .executable(name: "jctool", targets: ["jctool"]),
+        .executable(name: "JohnnyDemo", targets: ["JohnnyDemo"]),
     ],
     targets: [
         // Pure Swift engine: resource parsing, software rendering, TTM/ADS
@@ -19,6 +20,13 @@ let package = Package(
         // RESOURCE.MAP + RESOURCE.001 files.
         .executableTarget(
             name: "jctool",
+            dependencies: ["JohnnyEngine"]
+        ),
+
+        // Windowed demo/debug app: play a single TTM or ADS scene with
+        // pause/step/speed controls. `swift run JohnnyDemo help`.
+        .executableTarget(
+            name: "JohnnyDemo",
             dependencies: ["JohnnyEngine"]
         ),
 
