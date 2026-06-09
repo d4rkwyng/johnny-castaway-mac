@@ -42,21 +42,37 @@ public enum AssetLocator {
     }
 
     /// First directory containing both resource files, or nil.
+    ///
+    /// Our own Application Support is checked before the saver's
+    /// container: reading another app's container is what makes macOS
+    /// ask to "access data from other apps", so only go there when we
+    /// have no copy of our own — and then cache the assets locally so
+    /// it never has to ask again.
     public static func find() -> URL? {
-        var candidates = [URL]()
-        if let env = ProcessInfo.processInfo.environment["JC_ASSET_DIR"] {
-            candidates.append(URL(fileURLWithPath: env))
+        if let env = ProcessInfo.processInfo.environment["JC_ASSET_DIR"],
+           containsAssets(URL(fileURLWithPath: env)) {
+            return URL(fileURLWithPath: env)
         }
-        candidates.append(saverContainerDirectory)
-        candidates.append(processAppSupportDirectory)
-        return candidates.first(where: containsAssets)
+
+        let own = processAppSupportDirectory
+        if containsAssets(own) { return own }
+
+        // Inside the saver's sandbox these two are the same directory.
+        let shared = saverContainerDirectory
+        guard shared.standardizedFileURL != own.standardizedFileURL,
+              containsAssets(shared) else { return nil }
+        try? copyAssets(from: shared, to: own)
+        return containsAssets(own) ? own : shared
     }
 
     /// Copies the resource files (and any soundN.wav next to them) from
     /// `source` into the saver container, creating it if needed.
     public static func importAssets(from source: URL) throws {
+        try copyAssets(from: source, to: saverContainerDirectory)
+    }
+
+    private static func copyAssets(from source: URL, to dest: URL) throws {
         let fm = FileManager.default
-        let dest = saverContainerDirectory
         try fm.createDirectory(at: dest, withIntermediateDirectories: true)
 
         var names = requiredFiles
