@@ -114,6 +114,7 @@ final class HelpOverlay: NSVisualEffectView {
             ("Return", "advance one frame (while paused)"),
             ("M", "toggle 50× max speed"),
             ("D", "skip to the next story day (1–11)"),
+            ("T", "set date & time (holidays, night)"),
             ("F", "toggle fullscreen"),
             ("Q or Esc", "quit"),
         ]
@@ -148,6 +149,64 @@ final class HelpOverlay: NSVisualEffectView {
     required init?(coder: NSCoder) { fatalError() }
 }
 
+// MARK: - Date override prompt
+
+/// Accessory for the T-key alert: a date picker with holiday presets.
+final class DateOverrideAccessory: NSView {
+    let picker = NSDatePicker()
+    private let presets = NSPopUpButton()
+    private var presetDates: [Date?] = [nil]
+
+    init(initial: Date) {
+        super.init(frame: .zero)
+
+        picker.datePickerStyle = .textFieldAndStepper
+        picker.datePickerElements = [.yearMonthDay, .hourMinute]
+        picker.dateValue = initial
+        picker.sizeToFit()
+
+        let calendar = Calendar.current
+        let year = calendar.component(.year, from: Date())
+        func date(month: Int, day: Int, hour: Int) -> Date? {
+            calendar.date(from: DateComponents(
+                year: year, month: month, day: day, hour: hour))
+        }
+        let tonight = calendar.date(
+            bySettingHour: 23, minute: 30, second: 0, of: Date())
+
+        presets.addItem(withTitle: "Presets")
+        for (title, presetDate) in [
+            ("Halloween — Oct 31", date(month: 10, day: 31, hour: 12)),
+            ("St. Patrick's Day — Mar 17", date(month: 3, day: 17, hour: 12)),
+            ("Christmas — Dec 24", date(month: 12, day: 24, hour: 12)),
+            ("New Year's Eve — Dec 31", date(month: 12, day: 31, hour: 12)),
+            ("Night — today 11:30 pm", tonight),
+        ] {
+            presets.addItem(withTitle: title)
+            presetDates.append(presetDate)
+        }
+        presets.target = self
+        presets.action = #selector(presetPicked(_:))
+        presets.sizeToFit()
+
+        let height = max(picker.frame.height, presets.frame.height)
+        picker.frame.origin = NSPoint(x: 0, y: (height - picker.frame.height) / 2)
+        presets.frame.origin = NSPoint(
+            x: picker.frame.maxX + 8, y: (height - presets.frame.height) / 2)
+        frame = NSRect(x: 0, y: 0, width: presets.frame.maxX, height: height)
+        addSubview(picker)
+        addSubview(presets)
+    }
+
+    required init?(coder: NSCoder) { fatalError() }
+
+    @objc private func presetPicked(_ sender: NSPopUpButton) {
+        if let date = presetDates[sender.indexOfSelectedItem] {
+            picker.dateValue = date
+        }
+    }
+}
+
 // MARK: - App
 
 final class DemoAppDelegate: NSObject, NSApplicationDelegate {
@@ -163,6 +222,9 @@ final class DemoAppDelegate: NSObject, NSApplicationDelegate {
     var engineThread: Thread?
     var paused = false
     var maxSpeed = false
+    /// Pretend "now" is shifted by this much (T key) — previews holidays
+    /// and night scenes without touching the persisted story day.
+    var dateOverrideOffset: TimeInterval?
     /// Bumped on every engine (re)start; a finishing thread only quits
     /// the app if it is still the current generation (not replaced).
     var engineGeneration = 0
@@ -200,10 +262,20 @@ final class DemoAppDelegate: NSObject, NSApplicationDelegate {
         startEngine(skipIntro: false)
     }
 
+    static let overrideFormatter: DateFormatter = {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "MMM d, HH:mm"
+        return formatter
+    }()
+
     func updateTitle() {
         var title = "Johnny Castaway"
         if case .story = mode {
             title += " — day \(max(storyStore.currentDay, 1))"
+        }
+        if let offset = dateOverrideOffset {
+            title += " — pretending it's "
+                + Self.overrideFormatter.string(from: Date().addingTimeInterval(offset))
         }
         if paused { title += " (paused)" }
         if maxSpeed { title += " (max speed)" }
@@ -211,6 +283,8 @@ final class DemoAppDelegate: NSObject, NSApplicationDelegate {
     }
 
     func handleKey(_ event: NSEvent) -> NSEvent? {
+        // Don't swallow keys headed for an alert (e.g. Return, T).
+        if NSApp.modalWindow != nil { return event }
         switch event.charactersIgnoringModifiers?.lowercased() {
         case "h", "?", "/":
             toggleHelp()
@@ -230,6 +304,9 @@ final class DemoAppDelegate: NSObject, NSApplicationDelegate {
             return nil
         case "d":
             skipToNextDay()
+            return nil
+        case "t":
+            promptDateOverride()
             return nil
         case "f":
             window.toggleFullScreen(nil)
@@ -273,6 +350,35 @@ final class DemoAppDelegate: NSObject, NSApplicationDelegate {
         updateTitle()
     }
 
+    /// T key: run the island on a different date and time — see the
+    /// holidays and night scenes without waiting for the real calendar.
+    func promptDateOverride() {
+        guard case .story = mode else { return }
+
+        let alert = NSAlert()
+        alert.messageText = "Set Date & Time"
+        alert.informativeText =
+            "Preview holiday decorations and night scenes by pretending "
+            + "it's another date. The saved story day is not affected."
+        let accessory = DateOverrideAccessory(
+            initial: Date().addingTimeInterval(dateOverrideOffset ?? 0))
+        alert.accessoryView = accessory
+        alert.addButton(withTitle: "Set")
+        alert.addButton(withTitle: "Use Real Time")
+        alert.addButton(withTitle: "Cancel")
+
+        switch alert.runModal() {
+        case .alertFirstButtonReturn:
+            dateOverrideOffset = accessory.picker.dateValue.timeIntervalSinceNow
+        case .alertSecondButtonReturn:
+            dateOverrideOffset = nil
+        default:
+            return
+        }
+        restartEngine()
+        updateTitle()
+    }
+
     func restartEngine() {
         engineClock.cancel()
         engineClock = RealTimeClock()
@@ -282,9 +388,25 @@ final class DemoAppDelegate: NSObject, NSApplicationDelegate {
     }
 
     func startEngine(skipIntro: Bool) {
+        // With a date override, give the engine a throwaway copy of the
+        // story state so the pretend date can't corrupt the real arc.
+        let store: StoryStateStore
+        let dateProvider: @Sendable () -> Date
+        if let offset = dateOverrideOffset {
+            let memory = InMemoryStoryStore()
+            memory.currentDay = max(storyStore.currentDay, 1)
+            memory.lastDate = Calendar.current.ordinality(
+                of: .day, in: .year, for: Date().addingTimeInterval(offset)) ?? 1
+            store = memory
+            dateProvider = { Date().addingTimeInterval(offset) }
+        } else {
+            store = storyStore
+            dateProvider = { Date() }
+        }
+
         let engine = Engine(
             library: library, clock: engineClock, presenter: frameView,
-            sound: soundPlayer, storyStore: storyStore)
+            sound: soundPlayer, storyStore: store, dateProvider: dateProvider)
         let mode = self.mode
 
         engineGeneration += 1
