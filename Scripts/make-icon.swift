@@ -70,25 +70,71 @@ func frond(_ ctx: CGContext, from p: CGPoint, angle degrees: CGFloat,
     ctx.fillPath()
 }
 
+/// The macOS app-icon squircle: a rounded rect whose corners are n=3
+/// superellipse quarters. Tahoe only displays legacy icns artwork as-is
+/// when its silhouette matches this shape (circular corners get the
+/// shrunk-on-a-white-plate "legacy" treatment), so match it exactly.
+func squirclePath(in rect: CGRect, cornerBox k: CGFloat) -> CGPath {
+    let path = CGMutablePath()
+    let steps = 48
+    // Quarter superellipse u^3 + v^3 = 1 traced into each corner box.
+    func corner(_ cx: CGFloat, _ cy: CGFloat, _ sx: CGFloat, _ sy: CGFloat,
+                swapped: Bool) -> [CGPoint] {
+        (0...steps).map { i in
+            let t = CGFloat(i) / CGFloat(steps) * .pi / 2
+            var u = pow(cos(t), 2.0 / 3.0)
+            var v = pow(sin(t), 2.0 / 3.0)
+            if swapped { swap(&u, &v) }
+            return CGPoint(x: cx + sx * k * (1 - u), y: cy + sy * k * (1 - v))
+        }
+    }
+    // Clockwise from the left end of the top edge, one continuous subpath.
+    path.move(to: CGPoint(x: rect.minX + k, y: rect.maxY))
+    path.addLine(to: CGPoint(x: rect.maxX - k, y: rect.maxY))
+    for p in corner(rect.maxX, rect.maxY, -1, -1, swapped: true) { path.addLine(to: p) }
+    path.addLine(to: CGPoint(x: rect.maxX, y: rect.minY + k))
+    for p in corner(rect.maxX, rect.minY, -1, 1, swapped: false) { path.addLine(to: p) }
+    path.addLine(to: CGPoint(x: rect.minX + k, y: rect.minY))
+    for p in corner(rect.minX, rect.minY, 1, 1, swapped: true) { path.addLine(to: p) }
+    path.addLine(to: CGPoint(x: rect.minX, y: rect.maxY - k))
+    for p in corner(rect.minX, rect.maxY, 1, -1, swapped: false) { path.addLine(to: p) }
+    path.closeSubpath()
+    return path
+}
+
 /// Draws the full icon into a 1024x1024 coordinate space.
 func drawIcon(_ ctx: CGContext, pixels: Int) {
     let s = CGFloat(pixels) / 1024
     ctx.scaleBy(x: s, y: s)
 
-    // Big Sur-style squircle plate; everything below is clipped to it.
-    let plate = CGRect(x: 100, y: 100, width: 824, height: 824)
-    ctx.addPath(CGPath(
-        roundedRect: plate, cornerWidth: 185, cornerHeight: 185, transform: nil))
+    // Geometry measured off a known-good icon on macOS 26.
+    let plate = CGRect(x: 97, y: 97, width: 830, height: 830)
+    let squircle = squirclePath(in: plate, cornerBox: 261)
+
+    // Apple's template puts a soft drop shadow under the plate, and
+    // Tahoe's legacy-icon check appears to expect it.
+    ctx.saveGState()
+    ctx.setShadow(offset: CGSize(width: 0, height: -6), blur: 14,
+                  color: rgb(0x000000, 0.30))
+    ctx.addPath(squircle)
+    ctx.setFillColor(rgb(0xFFFFFF))
+    ctx.fillPath()
+    ctx.restoreGState()
+
+    ctx.addPath(squircle)
     ctx.clip()
 
     let horizon: CGFloat = 430
 
-    // Sky and sea
+    // Sky and sea — fill the whole plate so the silhouette is exactly
+    // the squircle (gaps would re-trigger the legacy treatment).
     verticalGradient(
-        ctx, in: CGRect(x: 100, y: horizon, width: 824, height: plate.maxY - horizon),
+        ctx, in: CGRect(x: plate.minX, y: horizon,
+                        width: plate.width, height: plate.maxY - horizon),
         top: rgb(0x6FC4EE), bottom: rgb(0xC4EAF8))
     verticalGradient(
-        ctx, in: CGRect(x: 100, y: 100, width: 824, height: horizon - 100),
+        ctx, in: CGRect(x: plate.minX, y: plate.minY,
+                        width: plate.width, height: horizon - plate.minY),
         top: rgb(0x3FA8CF), bottom: rgb(0x1D6FA3))
 
     // Sun with a soft glow
