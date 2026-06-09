@@ -219,10 +219,13 @@ extension Engine {
     }
 
     /// Port of storyPlay: the top-level screensaver loop. Runs until the
-    /// Clock cancels the engine.
-    public func storyPlay() throws {
+    /// Clock cancels the engine. `skipIntro` skips the title card (used
+    /// when the host restarts the engine, e.g. the demo app's day-skip).
+    public func storyPlay(skipIntro: Bool = false) throws {
         adsInit()
-        try adsPlayIntro()
+        if !skipIntro {
+            try adsPlayIntro()
+        }
 
         while true {
             storyUpdateCurrentDay()

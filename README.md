@@ -34,16 +34,33 @@ Then open **System Settings → Screen Saver**, click **Show All** under
 RESOURCE.MAP/RESOURCE.001 (or drop them in
 `~/Library/Containers/com.apple.ScreenSaver.Engine.legacyScreenSaver/Data/Library/Application Support/JohnnyCastaway/`).
 
-## Watch it in a window
+## Run it as an app
 
 ```sh
-swift run -c release JohnnyDemo            # full story mode
-swift run -c release JohnnyDemo list       # list scenes
+./Scripts/build-app.sh --install   # → /Applications/Johnny Castaway.app
+```
+
+Double-click it (or `swift run -c release JohnnyDemo` from the repo) and
+Johnny does his thing in a window. Press **H** for the key reference:
+
+| Key | Action |
+|-----|--------|
+| H or ? | show/hide help overlay |
+| Space | pause / resume |
+| Return | advance one frame while paused |
+| M | toggle 50× max speed |
+| D | skip to the next story day (1–11) |
+| F | toggle fullscreen |
+| Q / Esc | quit |
+
+Other modes:
+
+```sh
+swift run -c release JohnnyDemo --fullscreen   # start fullscreen
+swift run -c release JohnnyDemo list           # list scenes
 swift run -c release JohnnyDemo ads FISHING.ADS 1 --island
 swift run -c release JohnnyDemo ttm MJJOG.TTM
 ```
-
-Keys: Space = pause · Return = single-step · M = 50× speed · Q = quit.
 
 ## You must supply the original game files
 
