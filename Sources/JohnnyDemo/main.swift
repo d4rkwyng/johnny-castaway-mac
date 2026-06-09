@@ -44,7 +44,8 @@ if arguments.first == "list" {
 
 enum DemoMode {
     case ttm(String)
-    case ads(String, UInt16)
+    case ads(String, UInt16, island: Bool)
+    case story
 }
 
 let mode: DemoMode
@@ -53,12 +54,15 @@ case "ttm" where arguments.count >= 2:
     mode = .ttm(arguments[1])
 case "ads" where arguments.count >= 3:
     guard let tag = UInt16(arguments[2]) else { fail("bad tag number '\(arguments[2])'") }
-    mode = .ads(arguments[1], tag)
+    mode = .ads(arguments[1], tag, island: arguments.contains("--island"))
+case "story", nil:
+    mode = .story
 default:
     fail("""
-    usage: JohnnyDemo ttm <NAME.TTM>
-           JohnnyDemo ads <NAME.ADS> <tag>
-           JohnnyDemo list
+    usage: JohnnyDemo [story]                          full screensaver loop
+           JohnnyDemo ttm <NAME.TTM>                   single animation script
+           JohnnyDemo ads <NAME.ADS> <tag> [--island]  single scene
+           JohnnyDemo list                             list playable resources
     """)
 }
 
@@ -161,10 +165,16 @@ final class DemoAppDelegate: NSObject, NSApplicationDelegate {
                     engine.adsInit()
                     engine.adsNoIsland()
                     try engine.playSingleTtm(name)
-                case .ads(let name, let tag):
+                case .ads(let name, let tag, let island):
                     engine.adsInit()
-                    engine.adsNoIsland()
+                    if island {
+                        try engine.adsInitIsland()
+                    } else {
+                        engine.adsNoIsland()
+                    }
                     try engine.adsPlay(name, tag)
+                case .story:
+                    try engine.storyPlay()
                 }
                 print("scene finished")
             } catch is EngineCancelled {

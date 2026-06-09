@@ -117,12 +117,23 @@ public final class Engine {
     var numThreads = 0
     var adsStopRequested = false
 
+    // MARK: island.c / walk.c / story.c state
+
+    var islandState = IslandState()
+    let walkState = WalkState()
+    var storyCurrentDay = 1
+    let storyStore: StoryStateStore
+    /// Injectable for tests and the demo app's holiday/night override.
+    let dateProvider: @Sendable () -> Date
+
     public init(
         library: ResourceLibrary,
         clock: Clock,
         presenter: FramePresenter?,
         sound: SamplePlayer? = nil,
-        rng: SeededRandom = SeededRandom()
+        rng: SeededRandom = SeededRandom(),
+        storyStore: StoryStateStore = InMemoryStoryStore(),
+        dateProvider: @escaping @Sendable () -> Date = { Date() }
     ) {
         self.library = library
         self.palette = Palette(library.palResources[0])
@@ -130,5 +141,43 @@ public final class Engine {
         self.presenter = presenter
         self.sound = sound
         self.rng = rng
+        self.storyStore = storyStore
+        self.dateProvider = dateProvider
+    }
+}
+
+/// Persists the 11-day story arc across runs (the original used a
+/// config file; the saver uses ScreenSaverDefaults).
+public protocol StoryStateStore: AnyObject {
+    /// 1…11 — how far Johnny's raft has come.
+    var currentDay: Int { get set }
+    /// Day-of-year when the story last advanced.
+    var lastDate: Int { get set }
+}
+
+public final class InMemoryStoryStore: StoryStateStore {
+    public var currentDay = 1
+    public var lastDate = -1
+    public init() {}
+}
+
+public final class UserDefaultsStoryStore: StoryStateStore {
+    private let defaults: UserDefaults
+
+    public init(defaults: UserDefaults) {
+        self.defaults = defaults
+    }
+
+    public var currentDay: Int {
+        get { max(defaults.integer(forKey: "storyCurrentDay"), 0) }
+        set { defaults.set(newValue, forKey: "storyCurrentDay") }
+    }
+
+    public var lastDate: Int {
+        get {
+            defaults.object(forKey: "storyLastDate") == nil
+                ? -1 : defaults.integer(forKey: "storyLastDate")
+        }
+        set { defaults.set(newValue, forKey: "storyLastDate") }
     }
 }
