@@ -1,0 +1,15 @@
+# Copyrighted original game assets — never commit these.
+Assets/
+
+# Build products
+.build/
+dist/
+*.saver
+
+# macOS noise
+.DS_Store
+
+# Editor/IDE
+*.xcuserdata
+.swiftpm/
+.vscode/
