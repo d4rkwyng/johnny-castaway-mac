@@ -10,9 +10,10 @@ BUILD_DIR=$(swift build -c release --show-bin-path)
 
 APP="dist/Johnny Castaway.app"
 rm -rf "$APP"
-mkdir -p "$APP/Contents/MacOS"
+mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
 
 cp "$BUILD_DIR/JohnnyDemo" "$APP/Contents/MacOS/Johnny Castaway"
+swift Scripts/make-icon.swift "$APP/Contents/Resources/AppIcon.icns"
 
 cat > "$APP/Contents/Info.plist" <<'PLIST'
 <?xml version="1.0" encoding="UTF-8"?>
@@ -21,6 +22,8 @@ cat > "$APP/Contents/Info.plist" <<'PLIST'
 <dict>
     <key>CFBundleExecutable</key>
     <string>Johnny Castaway</string>
+    <key>CFBundleIconFile</key>
+    <string>AppIcon</string>
     <key>CFBundleIdentifier</key>
     <string>net.cyduck.JohnnyCastaway.app</string>
     <key>CFBundleName</key>
