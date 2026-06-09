@@ -10,6 +10,9 @@ let package = Package(
         .library(name: "JohnnyEngine", targets: ["JohnnyEngine"]),
         .executable(name: "jctool", targets: ["jctool"]),
         .executable(name: "JohnnyDemo", targets: ["JohnnyDemo"]),
+        // Built as a dylib, then assembled into JohnnyCastaway.saver by
+        // Scripts/build-saver.sh (SwiftPM cannot produce .saver bundles).
+        .library(name: "JohnnySaver", type: .dynamic, targets: ["JohnnySaver"]),
     ],
     targets: [
         // Pure Swift engine: resource parsing, software rendering, TTM/ADS
@@ -35,6 +38,12 @@ let package = Package(
         // pause/step/speed controls. `swift run JohnnyDemo help`.
         .executableTarget(
             name: "JohnnyDemo",
+            dependencies: ["JohnnyEngine", "JohnnyEngineAppKit"]
+        ),
+
+        // The screensaver view + configure sheet (ScreenSaver framework).
+        .target(
+            name: "JohnnySaver",
             dependencies: ["JohnnyEngine", "JohnnyEngineAppKit"]
         ),
 
