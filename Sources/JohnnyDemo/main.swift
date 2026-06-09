@@ -447,6 +447,10 @@ final class DemoAppDelegate: NSObject, NSApplicationDelegate {
         engineThread = thread
     }
 
+    func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool {
+        true
+    }
+
     func applicationWillTerminate(_ notification: Notification) {
         engineClock.cancel()
     }
