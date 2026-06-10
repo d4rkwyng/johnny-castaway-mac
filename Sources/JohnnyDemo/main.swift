@@ -112,6 +112,7 @@ final class HelpOverlay: NSVisualEffectView {
             ("H or ?", "show / hide this help"),
             ("Space", "pause / resume"),
             ("Return", "advance one frame (while paused)"),
+            ("- or +", "step speed down / up (0.25×–50×)"),
             ("M", "toggle 50× max speed"),
             ("D", "skip to the next story day (1–11)"),
             ("T", "set date & time (holidays, night)"),
@@ -220,8 +221,9 @@ final class DemoAppDelegate: NSObject, NSApplicationDelegate {
     var helpOverlay: HelpOverlay?
     var engineClock = RealTimeClock()
     var engineThread: Thread?
+    static let speedSteps: [Double] = [0.25, 0.5, 1, 2, 5, 10, 25, 50]
     var paused = false
-    var maxSpeed = false
+    var speed: Double = 1
     /// Pretend "now" is shifted by this much (T key) — previews holidays
     /// and night scenes without touching the persisted story day.
     var dateOverrideOffset: TimeInterval?
@@ -278,7 +280,10 @@ final class DemoAppDelegate: NSObject, NSApplicationDelegate {
                 + Self.overrideFormatter.string(from: Date().addingTimeInterval(offset))
         }
         if paused { title += " (paused)" }
-        if maxSpeed { title += " (max speed)" }
+        if speed != 1 {
+            let label = speed == speed.rounded() ? "\(Int(speed))" : "\(speed)"
+            title += " (\(label)×)"
+        }
         window.title = title
     }
 
@@ -298,9 +303,13 @@ final class DemoAppDelegate: NSObject, NSApplicationDelegate {
             engineClock.step()
             return nil
         case "m":
-            maxSpeed.toggle()
-            engineClock.speedMultiplier = maxSpeed ? 50 : 1
-            updateTitle()
+            setSpeed(speed == 1 ? 50 : 1)
+            return nil
+        case "-", "_":
+            stepSpeed(by: -1)
+            return nil
+        case "+", "=":
+            stepSpeed(by: 1)
             return nil
         case "d":
             skipToNextDay()
@@ -317,6 +326,23 @@ final class DemoAppDelegate: NSObject, NSApplicationDelegate {
         default:
             return event
         }
+    }
+
+    func setSpeed(_ newSpeed: Double) {
+        speed = newSpeed
+        engineClock.speedMultiplier = newSpeed
+        updateTitle()
+    }
+
+    /// -/+ keys: walk the speed ladder one step at a time.
+    func stepSpeed(by direction: Int) {
+        let steps = Self.speedSteps
+        // Closest rung to the current speed (M can land us between rungs).
+        let index = steps.indices.min(by: {
+            abs(steps[$0] - speed) < abs(steps[$1] - speed)
+        })!
+        let next = min(max(index + direction, 0), steps.count - 1)
+        setSpeed(steps[next])
     }
 
     func toggleHelp() {
@@ -383,7 +409,7 @@ final class DemoAppDelegate: NSObject, NSApplicationDelegate {
         engineClock.cancel()
         engineClock = RealTimeClock()
         if paused { engineClock.setPaused(true) }
-        if maxSpeed { engineClock.speedMultiplier = 50 }
+        engineClock.speedMultiplier = speed
         startEngine(skipIntro: true)
     }
 
