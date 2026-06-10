@@ -21,9 +21,15 @@ All engine phases complete — the full screensaver works.
 - [x] ADS scene scheduler + sound
 - [x] Island, walking, story progression (3-seed × 1M-tick soak tested)
 - [x] `.saver` bundle with Sonoma+ lifecycle workarounds
+- [x] [Releases](https://github.com/d4rkwyng/johnny-castaway-mac/releases) — `.saver` + `.app` zips built by CI
 - [ ] Signed/notarized releases (ad-hoc signed artifacts for now)
 
 ## Install the screensaver
+
+Grab `JohnnyCastaway-saver-*.zip` from the
+[latest release](https://github.com/d4rkwyng/johnny-castaway-mac/releases/latest)
+(unquarantine it: `xattr -dr com.apple.quarantine JohnnyCastaway.saver`),
+or build it yourself:
 
 ```sh
 ./Scripts/build-saver.sh --install
@@ -48,8 +54,10 @@ Johnny does his thing in a window. Press **H** for the key reference:
 | H or ? | show/hide help overlay |
 | Space | pause / resume |
 | Return | advance one frame while paused |
+| − / + | step speed down / up (0.25×–50×) |
 | M | toggle 50× max speed |
 | D | skip to the next story day (1–11) |
+| T | set date & time (preview holidays / night) |
 | F | toggle fullscreen |
 | Q / Esc | quit |
 
