@@ -12,6 +12,8 @@ jobs:
     runs-on: macos-15
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # full history: the build number is the commit count
 
       - name: Build .saver (ad-hoc signed)
         run: ./Scripts/build-saver.sh
