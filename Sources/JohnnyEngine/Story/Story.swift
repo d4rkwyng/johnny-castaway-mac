@@ -263,6 +263,7 @@ extension Engine {
                     let scene = storyPickScene(wanted: wantedFlags, unwanted: unwantedFlags)
 
                     if prevSpot != -1 {
+                        storyWalkObserver?(prevSpot, prevHdg, scene.spotStart, scene.hdgStart)
                         try adsPlayWalk(
                             fromSpot: prevSpot, fromHdg: prevHdg,
                             toSpot: scene.spotStart, toHdg: scene.hdgStart)
@@ -275,6 +276,7 @@ extension Engine {
                         sound?.play(0)
                     }
 
+                    storySceneObserver?(scene, false)
                     try adsPlay(scene.adsName, scene.adsTag)
 
                     unwantedFlags.insert(.first)
@@ -284,6 +286,7 @@ extension Engine {
             }
 
             if prevSpot != -1 {
+                storyWalkObserver?(prevSpot, prevHdg, finalScene.spotStart, finalScene.hdgStart)
                 try adsPlayWalk(
                     fromSpot: prevSpot, fromHdg: prevHdg,
                     toSpot: finalScene.spotStart, toHdg: finalScene.hdgStart)
@@ -301,6 +304,7 @@ extension Engine {
                 sound?.play(0)
             }
 
+            storySceneObserver?(finalScene, true)
             try adsPlay(finalScene.adsName, finalScene.adsTag)
 
             try grFadeOut()

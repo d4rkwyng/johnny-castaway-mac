@@ -122,6 +122,11 @@ public final class Engine {
     var islandState = IslandState()
     let walkState = WalkState()
     var storyCurrentDay = 1
+    /// Test hooks: observe story choreography without affecting playback.
+    /// Called right before a scene plays; the Bool marks the final scene.
+    var storySceneObserver: ((StoryScene, Bool) -> Void)?
+    /// Called right before a connecting walk (fromSpot, fromHdg, toSpot, toHdg).
+    var storyWalkObserver: ((Int, Int, Int, Int) -> Void)?
     let storyStore: StoryStateStore
     /// Injectable for tests and the demo app's holiday/night override.
     let dateProvider: @Sendable () -> Date
