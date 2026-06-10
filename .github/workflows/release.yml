@@ -16,23 +16,37 @@ jobs:
       - name: Build .saver (ad-hoc signed)
         run: ./Scripts/build-saver.sh
 
-      # When Developer ID secrets are configured, sign + notarize:
-      #   CODESIGN_ID, NOTARY_APPLE_ID, NOTARY_TEAM_ID, NOTARY_PASSWORD
-      - name: Notarize
+      - name: Build .app
+        run: ./Scripts/build-app.sh
+
+      # Signing + notarization activates when the repo has:
+      #   variable CODESIGN_ID      "Developer ID Application: Name (TEAMID)"
+      #   secret CERT_P12_BASE64    base64 of the exported Developer ID .p12
+      #   secret CERT_P12_PASSWORD  password of that .p12
+      #   secrets NOTARY_APPLE_ID / NOTARY_TEAM_ID / NOTARY_PASSWORD
+      #           (Apple ID, team ID, app-specific password for notarytool)
+      - name: Import signing certificate
+        if: ${{ vars.CODESIGN_ID != '' }}
+        uses: apple-actions/import-codesign-certs@v3
+        with:
+          p12-file-base64: ${{ secrets.CERT_P12_BASE64 }}
+          p12-password: ${{ secrets.CERT_P12_PASSWORD }}
+
+      - name: Sign and notarize
         if: ${{ vars.CODESIGN_ID != '' }}
         env:
           CODESIGN_ID: ${{ vars.CODESIGN_ID }}
         run: |
-          codesign --force --deep --options runtime --sign "$CODESIGN_ID" dist/JohnnyCastaway.saver
-          ditto -c -k --keepParent dist/JohnnyCastaway.saver dist/JohnnyCastaway.saver.zip
-          xcrun notarytool submit dist/JohnnyCastaway.saver.zip \
-            --apple-id "${{ secrets.NOTARY_APPLE_ID }}" \
-            --team-id "${{ secrets.NOTARY_TEAM_ID }}" \
-            --password "${{ secrets.NOTARY_PASSWORD }}" --wait
-          xcrun stapler staple dist/JohnnyCastaway.saver
-
-      - name: Build .app
-        run: ./Scripts/build-app.sh
+          for bundle in "dist/JohnnyCastaway.saver" "dist/Johnny Castaway.app"; do
+            codesign --force --deep --options runtime --sign "$CODESIGN_ID" "$bundle"
+            ditto -c -k --keepParent "$bundle" /tmp/notarize.zip
+            xcrun notarytool submit /tmp/notarize.zip \
+              --apple-id "${{ secrets.NOTARY_APPLE_ID }}" \
+              --team-id "${{ secrets.NOTARY_TEAM_ID }}" \
+              --password "${{ secrets.NOTARY_PASSWORD }}" --wait
+            xcrun stapler staple "$bundle"
+            rm /tmp/notarize.zip
+          done
 
       - name: Zip artifacts
         run: |
