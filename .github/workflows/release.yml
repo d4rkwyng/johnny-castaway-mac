@@ -28,15 +28,23 @@ jobs:
             --password "${{ secrets.NOTARY_PASSWORD }}" --wait
           xcrun stapler staple dist/JohnnyCastaway.saver
 
-      - name: Zip artifact
-        run: ditto -c -k --keepParent dist/JohnnyCastaway.saver dist/JohnnyCastaway-${{ github.ref_name }}.zip
+      - name: Build .app
+        run: ./Scripts/build-app.sh
+
+      - name: Zip artifacts
+        run: |
+          ditto -c -k --keepParent dist/JohnnyCastaway.saver dist/JohnnyCastaway-saver-${{ github.ref_name }}.zip
+          ditto -c -k --keepParent "dist/Johnny Castaway.app" dist/JohnnyCastaway-app-${{ github.ref_name }}.zip
 
       - name: Create release
         uses: softprops/action-gh-release@v2
         with:
-          files: dist/JohnnyCastaway-${{ github.ref_name }}.zip
+          files: |
+            dist/JohnnyCastaway-saver-${{ github.ref_name }}.zip
+            dist/JohnnyCastaway-app-${{ github.ref_name }}.zip
           body: |
-            JohnnyCastaway.saver for macOS 14+.
+            **JohnnyCastaway.saver** (screensaver) and **Johnny Castaway.app**
+            (windowed player with debug keys — press H) for macOS 14+.
 
             **You must supply your own RESOURCE.MAP / RESOURCE.001** from an
             original copy of the screensaver — see the README. If the build is
