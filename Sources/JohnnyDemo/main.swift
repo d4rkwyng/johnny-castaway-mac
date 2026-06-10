@@ -477,13 +477,46 @@ final class DemoAppDelegate: NSObject, NSApplicationDelegate {
         true
     }
 
+    @objc func showAbout() {
+        let credits = NSAttributedString(
+            string: """
+            A native recreation of Screen Antics: Johnny Castaway \
+            (© 1992 Sierra On-Line / Dynamix — not affiliated).
+            Engine ported from Jérémie Guillaume's jc_reborn.
+            GPL-3.0 — requires the original RESOURCE.MAP / RESOURCE.001.
+            """,
+            attributes: [
+                .font: NSFont.systemFont(ofSize: 11),
+                .foregroundColor: NSColor.secondaryLabelColor,
+            ])
+        NSApp.orderFrontStandardAboutPanel(options: [.credits: credits])
+    }
+
     func applicationWillTerminate(_ notification: Notification) {
         engineClock.cancel()
     }
 }
 
+func buildMainMenu() -> NSMenu {
+    let main = NSMenu()
+    let appItem = NSMenuItem()
+    main.addItem(appItem)
+
+    let appMenu = NSMenu()
+    appItem.submenu = appMenu
+    appMenu.addItem(NSMenuItem(
+        title: "About Johnny Castaway",
+        action: #selector(DemoAppDelegate.showAbout), keyEquivalent: ""))
+    appMenu.addItem(.separator())
+    appMenu.addItem(NSMenuItem(
+        title: "Quit Johnny Castaway",
+        action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q"))
+    return main
+}
+
 let app = NSApplication.shared
 app.setActivationPolicy(.regular)
+app.mainMenu = buildMainMenu()
 let delegate = DemoAppDelegate(
     mode: mode, library: library,
     soundPlayer: WavSamplePlayer(directory: assetDir))
