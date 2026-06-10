@@ -4,6 +4,9 @@ on:
   push:
     tags: ["v*"]
 
+permissions:
+  contents: write  # create the release
+
 jobs:
   build-saver:
     runs-on: macos-15
