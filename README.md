@@ -20,16 +20,20 @@ All engine phases complete — the full screensaver works.
 - [x] TTM animation interpreter (all 41 scripts play to completion)
 - [x] ADS scene scheduler + sound
 - [x] Island, walking, story progression (3-seed × 1M-tick soak tested)
+- [x] Story choreography invariant tests (day gating, walk connectivity, scene-flag rules)
 - [x] `.saver` bundle with Sonoma+ lifecycle workarounds
 - [x] [Releases](https://github.com/d4rkwyng/johnny-castaway-mac/releases) — `.saver` + `.app` zips built by CI
-- [ ] Signed/notarized releases (ad-hoc signed artifacts for now)
+- [x] Developer ID signed + notarized releases, Homebrew tap
 
 ## Install the screensaver
 
-Grab `JohnnyCastaway-saver-*.zip` from the
+```sh
+brew install --cask d4rkwyng/tap/johnny-castaway-saver
+```
+
+or grab `JohnnyCastaway-saver-*.zip` from the
 [latest release](https://github.com/d4rkwyng/johnny-castaway-mac/releases/latest)
-(unquarantine it: `xattr -dr com.apple.quarantine JohnnyCastaway.saver`),
-or build it yourself:
+(signed + notarized), or build it yourself:
 
 ```sh
 ./Scripts/build-saver.sh --install
@@ -41,6 +45,12 @@ RESOURCE.MAP/RESOURCE.001 (or drop them in
 `~/Library/Containers/com.apple.ScreenSaver.Engine.legacyScreenSaver/Data/Library/Application Support/JohnnyCastaway/`).
 
 ## Run it as an app
+
+```sh
+brew install --cask d4rkwyng/tap/johnny-castaway
+```
+
+or build it yourself:
 
 ```sh
 ./Scripts/build-app.sh --install   # → /Applications/Johnny Castaway.app

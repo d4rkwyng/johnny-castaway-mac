@@ -63,7 +63,8 @@ jobs:
             **JohnnyCastaway.saver** (screensaver) and **Johnny Castaway.app**
             (windowed player with debug keys — press H) for macOS 14+.
 
+            Also available via Homebrew:
+            `brew install --cask d4rkwyng/tap/johnny-castaway[-saver]`
+
             **You must supply your own RESOURCE.MAP / RESOURCE.001** from an
-            original copy of the screensaver — see the README. If the build is
-            not notarized, right-click → Open or strip quarantine:
-            `xattr -dr com.apple.quarantine JohnnyCastaway.saver`
+            original copy of the screensaver — see the README.
