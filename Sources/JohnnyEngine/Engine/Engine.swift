@@ -69,7 +69,8 @@ public final class Engine {
     let palette: Palette
     let clock: Clock
     weak var presenter: FramePresenter?
-    weak var sound: SamplePlayer?
+    // Strong: the engine is the only owner the saver gives the player.
+    var sound: SamplePlayer?
     var rng: SeededRandom
 
     // MARK: graphics.c state

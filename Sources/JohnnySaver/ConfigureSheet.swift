@@ -92,8 +92,8 @@ final class ConfigureSheet: NSObject {
     }
 
     private func refreshStatus() {
-        if let dir = AssetLocator.find() {
-            statusLabel.stringValue = "Resource files found at:\n\(dir.path)"
+        if AssetLocator.find() != nil {
+            statusLabel.stringValue = "Resource files imported — Johnny is ready."
         } else {
             statusLabel.stringValue =
                 "Resource files not imported yet. Click “Import Resource Files…” "

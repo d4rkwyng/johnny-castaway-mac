@@ -66,9 +66,15 @@ public enum AssetLocator {
     }
 
     /// Copies the resource files (and any soundN.wav next to them) from
-    /// `source` into the saver container, creating it if needed.
+    /// `source` into the process's own Application Support and, best
+    /// effort, the saver container — one import provisions both the
+    /// app and the screensaver.
     public static func importAssets(from source: URL) throws {
-        try copyAssets(from: source, to: saverContainerDirectory)
+        try copyAssets(from: source, to: processAppSupportDirectory)
+        let shared = saverContainerDirectory
+        if shared.standardizedFileURL != processAppSupportDirectory.standardizedFileURL {
+            try? copyAssets(from: source, to: shared)
+        }
     }
 
     private static func copyAssets(from source: URL, to dest: URL) throws {

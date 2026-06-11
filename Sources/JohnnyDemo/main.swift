@@ -24,10 +24,64 @@ func fail(_ message: String) -> Never {
 }
 
 let localAssets = URL(fileURLWithPath: "Assets")
-let assetDir = AssetLocator.find()
-    ?? (AssetLocator.containsAssets(localAssets) ? localAssets : nil)
 
-guard let assetDir, let library = try? ResourceLibrary(directory: assetDir) else {
+func locateAssets() -> URL? {
+    AssetLocator.find() ?? (AssetLocator.containsAssets(localAssets) ? localAssets : nil)
+}
+
+/// First-run dialog: explains the resource files and imports a folder
+/// (provisioning both the app and the screensaver). Nil if the user quits.
+func promptForAssets() -> URL? {
+    NSApplication.shared.setActivationPolicy(.regular)
+    NSApplication.shared.activate(ignoringOtherApps: true)
+    while true {
+        let alert = NSAlert()
+        alert.messageText = "Johnny needs the original resource files"
+        alert.informativeText = """
+        The artwork and animations come from the original 1992 screensaver \
+        and are still copyrighted, so they aren't bundled. Choose the folder \
+        containing RESOURCE.MAP and RESOURCE.001 (plus sound0–24.wav if you \
+        have them). The README explains how to extract them from an original \
+        copy. Importing once also sets up the screensaver.
+        """
+        alert.addButton(withTitle: "Choose Folder…")
+        alert.addButton(withTitle: "Quit")
+        guard alert.runModal() == .alertFirstButtonReturn else { return nil }
+
+        let panel = NSOpenPanel()
+        panel.canChooseDirectories = true
+        panel.canChooseFiles = false
+        panel.allowsMultipleSelection = false
+        panel.message = "Select the folder containing RESOURCE.MAP and RESOURCE.001"
+        panel.prompt = "Import"
+        guard panel.runModal() == .OK, let url = panel.url else { continue }
+
+        do {
+            try AssetLocator.importAssets(from: url)
+            if let dir = locateAssets() { return dir }
+        } catch {
+            let failed = NSAlert()
+            failed.alertStyle = .warning
+            failed.messageText = "Import failed"
+            failed.informativeText =
+                "That folder doesn't contain usable RESOURCE.MAP/RESOURCE.001 files.\n\(error)"
+            failed.runModal()
+        }
+    }
+}
+
+// Windowed launches (Finder double-click, `Johnny story`, --fullscreen) get
+// the import dialog on first run; CLI subcommands keep the terse failure.
+let isWindowedLaunch = arguments.allSatisfy { $0.hasPrefix("-") || $0 == "story" }
+
+var resolvedAssetDir = locateAssets()
+if resolvedAssetDir == nil, isWindowedLaunch {
+    resolvedAssetDir = promptForAssets()
+    if resolvedAssetDir == nil { exit(0) }
+}
+
+guard let assetDir = resolvedAssetDir,
+      let library = try? ResourceLibrary(directory: assetDir) else {
     fail("could not find RESOURCE.MAP/RESOURCE.001 (set JC_ASSET_DIR or put them in ./Assets)")
 }
 

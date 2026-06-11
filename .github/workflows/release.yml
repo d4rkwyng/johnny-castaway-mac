@@ -54,19 +54,27 @@ jobs:
         run: |
           ditto -c -k --keepParent dist/JohnnyCastaway.saver dist/JohnnyCastaway-saver-${{ github.ref_name }}.zip
           ditto -c -k --keepParent "dist/Johnny Castaway.app" dist/JohnnyCastaway-app-${{ github.ref_name }}.zip
+          # Combined zip (app + saver) — what the main Homebrew cask installs.
+          mkdir dist/combined
+          ditto dist/JohnnyCastaway.saver dist/combined/JohnnyCastaway.saver
+          ditto "dist/Johnny Castaway.app" "dist/combined/Johnny Castaway.app"
+          ditto -c -k dist/combined dist/JohnnyCastaway-${{ github.ref_name }}.zip
 
       - name: Create release
         uses: softprops/action-gh-release@v2
         with:
           files: |
+            dist/JohnnyCastaway-${{ github.ref_name }}.zip
             dist/JohnnyCastaway-saver-${{ github.ref_name }}.zip
             dist/JohnnyCastaway-app-${{ github.ref_name }}.zip
           body: |
             **JohnnyCastaway.saver** (screensaver) and **Johnny Castaway.app**
             (windowed player with debug keys — press H) for macOS 14+.
+            `JohnnyCastaway-${{ github.ref_name }}.zip` contains both.
 
-            Also available via Homebrew:
-            `brew install --cask d4rkwyng/tap/johnny-castaway[-saver]`
+            Easiest install (app + screensaver, then launch the app once to
+            import your resource files):
+            `brew install --cask d4rkwyng/tap/johnny-castaway`
 
             **You must supply your own RESOURCE.MAP / RESOURCE.001** from an
             original copy of the screensaver — see the README.

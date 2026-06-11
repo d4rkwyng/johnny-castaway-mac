@@ -25,36 +25,32 @@ All engine phases complete — the full screensaver works.
 - [x] [Releases](https://github.com/d4rkwyng/johnny-castaway-mac/releases) — `.saver` + `.app` zips built by CI
 - [x] Developer ID signed + notarized releases, Homebrew tap
 
-## Install the screensaver
-
-```sh
-brew install --cask d4rkwyng/tap/johnny-castaway-saver
-```
-
-or grab `JohnnyCastaway-saver-*.zip` from the
-[latest release](https://github.com/d4rkwyng/johnny-castaway-mac/releases/latest)
-(signed + notarized), or build it yourself:
-
-```sh
-./Scripts/build-saver.sh --install
-```
-
-Then open **System Settings → Screen Saver**, click **Show All** under
-"Other", and select **Johnny Castaway**. Click **Options…** to import your
-RESOURCE.MAP/RESOURCE.001 (or drop them in
-`~/Library/Containers/com.apple.ScreenSaver.Engine.legacyScreenSaver/Data/Library/Application Support/JohnnyCastaway/`).
-
-## Run it as an app
+## Install
 
 ```sh
 brew install --cask d4rkwyng/tap/johnny-castaway
 ```
 
-or build it yourself:
+installs **both** the app and the screensaver. Launch **Johnny Castaway**
+from Applications once — on first run it asks for the folder with your
+RESOURCE.MAP/RESOURCE.001 ([see below](#you-must-supply-the-original-game-files))
+and that single import provisions the screensaver too. Then open
+**System Settings → Screen Saver**, click **Show All** under "Other", and
+select **Johnny Castaway**.
+
+Screensaver only: `brew install --cask d4rkwyng/tap/johnny-castaway-saver`,
+then import the resource files via the saver's **Options…** sheet.
+
+All zips (combined, app-only, saver-only) are on the
+[latest release](https://github.com/d4rkwyng/johnny-castaway-mac/releases/latest)
+(signed + notarized), or build from source:
 
 ```sh
-./Scripts/build-app.sh --install   # → /Applications/Johnny Castaway.app
+./Scripts/build-app.sh --install     # → /Applications/Johnny Castaway.app
+./Scripts/build-saver.sh --install   # → ~/Library/Screen Savers
 ```
+
+## The app
 
 Double-click it (or `swift run -c release JohnnyDemo` from the repo) and
 Johnny does his thing in a window. Press **H** for the key reference:
