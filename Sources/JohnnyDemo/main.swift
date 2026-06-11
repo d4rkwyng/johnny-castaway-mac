@@ -117,11 +117,13 @@ final class FrameView: NSView, FramePresenter {
 
 // MARK: - First-run import (drop target)
 
-/// Shown in the window until resource files are imported: drop the
-/// folder (or the files) anywhere, or click Choose Folder…
+/// First-run welcome, shown until resource files are imported: drop the
+/// folder (or the files) anywhere in the window, or click Choose Folder…
 final class SetupDropView: NSView {
     var onURLsDropped: (([URL]) -> Void)?
     var onBrowse: (() -> Void)?
+
+    private let dropZone = NSView()
 
     override init(frame: NSRect) {
         super.init(frame: frame)
@@ -129,30 +131,69 @@ final class SetupDropView: NSView {
         layer?.backgroundColor = NSColor.black.cgColor
         registerForDraggedTypes([.fileURL])
 
-        let title = NSTextField(labelWithString: "Johnny needs the original resource files")
-        title.font = .boldSystemFont(ofSize: 18)
+        let icon = NSImageView(image: NSApp.applicationIconImage ?? NSImage())
+        icon.translatesAutoresizingMaskIntoConstraints = false
+        icon.widthAnchor.constraint(equalToConstant: 96).isActive = true
+        icon.heightAnchor.constraint(equalToConstant: 96).isActive = true
+
+        let title = NSTextField(labelWithString: "Welcome to Johnny Castaway")
+        title.font = .boldSystemFont(ofSize: 20)
         title.textColor = .white
         title.alignment = .center
 
         let body = NSTextField(wrappingLabelWithString: """
-        The artwork comes from the original 1992 screensaver and is still \
-        copyrighted, so it isn't bundled. Drag the folder containing \
-        RESOURCE.MAP and RESOURCE.001 here (sound0–24.wav too, if you have \
-        them) — the README explains how to extract them. Importing once \
-        also sets up the screensaver.
+        Johnny plays the artwork from the original 1992 screensaver, which \
+        is still copyrighted and isn't bundled. One import sets up both the \
+        app and the screensaver.
         """)
         body.font = .systemFont(ofSize: 13)
         body.textColor = NSColor(white: 0.8, alpha: 1)
         body.alignment = .center
-        body.preferredMaxLayoutWidth = 440
+        body.preferredMaxLayoutWidth = 430
+
+        let dropHint = NSTextField(labelWithString:
+            "Drop the folder with RESOURCE.MAP and RESOURCE.001 here")
+        dropHint.font = .systemFont(ofSize: 14, weight: .medium)
+        dropHint.textColor = NSColor(white: 0.9, alpha: 1)
+        dropHint.alignment = .center
+
+        let dropSub = NSTextField(labelWithString:
+            "(sound0–24.wav come along too, if they're next to them)")
+        dropSub.font = .systemFont(ofSize: 11)
+        dropSub.textColor = .secondaryLabelColor
+        dropSub.alignment = .center
+
+        dropZone.wantsLayer = true
+        dropZone.layer?.cornerRadius = 12
+        dropZone.layer?.borderWidth = 1.5
+        dropZone.layer?.borderColor = NSColor(white: 0.45, alpha: 1).cgColor
+
+        let dropStack = NSStackView(views: [dropHint, dropSub])
+        dropStack.orientation = .vertical
+        dropStack.alignment = .centerX
+        dropStack.spacing = 4
+        dropStack.translatesAutoresizingMaskIntoConstraints = false
+        dropZone.addSubview(dropStack)
+        dropZone.translatesAutoresizingMaskIntoConstraints = false
+        NSLayoutConstraint.activate([
+            dropStack.centerXAnchor.constraint(equalTo: dropZone.centerXAnchor),
+            dropStack.centerYAnchor.constraint(equalTo: dropZone.centerYAnchor),
+            dropZone.widthAnchor.constraint(equalToConstant: 460),
+            dropZone.heightAnchor.constraint(equalToConstant: 88),
+        ])
 
         let browse = NSButton(title: "Choose Folder…", target: self, action: #selector(browse(_:)))
         browse.keyEquivalent = "\r"
+        let help = NSButton(title: "How to Get the Files", target: self, action: #selector(openHelp(_:)))
+        let buttons = NSStackView(views: [browse, help])
+        buttons.orientation = .horizontal
+        buttons.spacing = 12
 
-        let stack = NSStackView(views: [title, body, browse])
+        let stack = NSStackView(views: [icon, title, body, dropZone, buttons])
         stack.orientation = .vertical
         stack.alignment = .centerX
         stack.spacing = 16
+        stack.setCustomSpacing(10, after: icon)
         stack.translatesAutoresizingMaskIntoConstraints = false
         addSubview(stack)
         NSLayoutConstraint.activate([
@@ -166,17 +207,29 @@ final class SetupDropView: NSView {
 
     @objc private func browse(_ sender: NSButton) { onBrowse?() }
 
+    @objc private func openHelp(_ sender: NSButton) {
+        NSWorkspace.shared.open(URL(string:
+            "https://github.com/d4rkwyng/johnny-castaway-mac#you-must-supply-the-original-game-files")!)
+    }
+
+    private func setHighlighted(_ on: Bool) {
+        dropZone.layer?.borderColor = (on ? NSColor.controlAccentColor
+                                          : NSColor(white: 0.45, alpha: 1)).cgColor
+        dropZone.layer?.backgroundColor = (on ? NSColor.controlAccentColor.withAlphaComponent(0.15)
+                                              : NSColor.clear).cgColor
+    }
+
     override func draggingEntered(_ sender: NSDraggingInfo) -> NSDragOperation {
-        layer?.backgroundColor = NSColor(white: 0.18, alpha: 1).cgColor
+        setHighlighted(true)
         return .copy
     }
 
     override func draggingExited(_ sender: NSDraggingInfo?) {
-        layer?.backgroundColor = NSColor.black.cgColor
+        setHighlighted(false)
     }
 
     override func performDragOperation(_ sender: NSDraggingInfo) -> Bool {
-        layer?.backgroundColor = NSColor.black.cgColor
+        setHighlighted(false)
         let urls = sender.draggingPasteboard.readObjects(
             forClasses: [NSURL.self],
             options: [.urlReadingFileURLsOnly: true]) as? [URL] ?? []
@@ -381,7 +434,7 @@ final class DemoAppDelegate: NSObject, NSApplicationDelegate {
         setup.onBrowse = { [weak self] in self?.browseForAssets() }
         frameView.addSubview(setup)
         setupView = setup
-        window.title = "Johnny Castaway — import resource files"
+        window.title = "Welcome to Johnny Castaway"
     }
 
     func browseForAssets() {
