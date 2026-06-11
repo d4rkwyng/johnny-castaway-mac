@@ -11,7 +11,7 @@ jobs:
   build-saver:
     runs-on: macos-15
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
         with:
           fetch-depth: 0  # full history: the build number is the commit count
 
@@ -29,7 +29,7 @@ jobs:
       #           (Apple ID, team ID, app-specific password for notarytool)
       - name: Import signing certificate
         if: ${{ vars.CODESIGN_ID != '' }}
-        uses: apple-actions/import-codesign-certs@v3
+        uses: apple-actions/import-codesign-certs@v7
         with:
           p12-file-base64: ${{ secrets.CERT_P12_BASE64 }}
           p12-password: ${{ secrets.CERT_P12_PASSWORD }}
@@ -61,7 +61,7 @@ jobs:
           ditto -c -k dist/combined dist/JohnnyCastaway-${{ github.ref_name }}.zip
 
       - name: Create release
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v3
         with:
           files: |
             dist/JohnnyCastaway-${{ github.ref_name }}.zip
