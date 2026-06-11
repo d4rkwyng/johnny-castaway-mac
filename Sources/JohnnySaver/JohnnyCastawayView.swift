@@ -24,6 +24,8 @@ public final class JohnnyCastawayView: ScreenSaverView, FramePresenter {
 
     private var engineClock: RealTimeClock?
     private var engineThread: Thread?
+    private var wasStarted = false
+    private var occlusionObserver: NSObjectProtocol?
 
     private var treatAsPreview: Bool {
         // System Settings on Sonoma+ sometimes hands out isPreview=false
@@ -76,19 +78,61 @@ public final class JohnnyCastawayView: ScreenSaverView, FramePresenter {
         if treatAsPreview {
             showStaticPreview()
         } else if engineThread == nil {
+            wasStarted = true
             startEngine()
         }
     }
 
+    /// Sonoma+ never calls stopAnimation when a saver is dismissed; it
+    /// detaches the view and leaks it with the engine still running —
+    /// invisible, but audible and burning CPU. Stop the engine whenever
+    /// the system pulls the view off screen.
+    public override func viewWillMove(toWindow newWindow: NSWindow?) {
+        super.viewWillMove(toWindow: newWindow)
+        if newWindow == nil {
+            stopEngine()
+        } else if wasStarted, engineThread == nil, !treatAsPreview {
+            startEngine()
+        }
+    }
+
+    /// Same leak, second shape: the window stays attached but is ordered
+    /// out or occluded (System Settings preview dismissed, display asleep).
+    public override func viewDidMoveToWindow() {
+        super.viewDidMoveToWindow()
+        if let observer = occlusionObserver {
+            NotificationCenter.default.removeObserver(observer)
+            occlusionObserver = nil
+        }
+        guard let window, !treatAsPreview else { return }
+        occlusionObserver = NotificationCenter.default.addObserver(
+            forName: NSWindow.didChangeOcclusionStateNotification,
+            object: window, queue: .main) { [weak self] _ in
+            guard let self else { return }
+            if self.window?.occlusionState.contains(.visible) == true {
+                if self.wasStarted, self.engineThread == nil { self.startEngine() }
+            } else {
+                self.stopEngine()
+            }
+        }
+    }
+
+    private func stopEngine() {
+        engineClock?.cancel()
+        engineClock = nil
+        engineThread = nil
+    }
+
     public override func stopAnimation() {
         super.stopAnimation()
-        engineClock?.cancel()
-        engineThread = nil
-        engineClock = nil
+        stopEngine()
     }
 
     deinit {
         engineClock?.cancel()
+        if let observer = occlusionObserver {
+            NotificationCenter.default.removeObserver(observer)
+        }
     }
 
     // MARK: - Engine

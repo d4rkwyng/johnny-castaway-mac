@@ -29,63 +29,31 @@ func locateAssets() -> URL? {
     AssetLocator.find() ?? (AssetLocator.containsAssets(localAssets) ? localAssets : nil)
 }
 
-/// First-run dialog: explains the resource files and imports a folder
-/// (provisioning both the app and the screensaver). Nil if the user quits.
-func promptForAssets() -> URL? {
-    NSApplication.shared.setActivationPolicy(.regular)
-    NSApplication.shared.activate(ignoringOtherApps: true)
-    while true {
-        let alert = NSAlert()
-        alert.messageText = "Johnny needs the original resource files"
-        alert.informativeText = """
-        The artwork and animations come from the original 1992 screensaver \
-        and are still copyrighted, so they aren't bundled. Choose the folder \
-        containing RESOURCE.MAP and RESOURCE.001 (plus sound0–24.wav if you \
-        have them). The README explains how to extract them from an original \
-        copy. Importing once also sets up the screensaver.
-        """
-        alert.addButton(withTitle: "Choose Folder…")
-        alert.addButton(withTitle: "Quit")
-        guard alert.runModal() == .alertFirstButtonReturn else { return nil }
-
-        let panel = NSOpenPanel()
-        panel.canChooseDirectories = true
-        panel.canChooseFiles = false
-        panel.allowsMultipleSelection = false
-        panel.message = "Select the folder containing RESOURCE.MAP and RESOURCE.001"
-        panel.prompt = "Import"
-        guard panel.runModal() == .OK, let url = panel.url else { continue }
-
-        do {
-            try AssetLocator.importAssets(from: url)
-            if let dir = locateAssets() { return dir }
-        } catch {
-            let failed = NSAlert()
-            failed.alertStyle = .warning
-            failed.messageText = "Import failed"
-            failed.informativeText =
-                "That folder doesn't contain usable RESOURCE.MAP/RESOURCE.001 files.\n\(error)"
-            failed.runModal()
+/// The folder to import from, given dropped/selected URLs: the folder
+/// itself, or the parent of a dropped RESOURCE.MAP/RESOURCE.001.
+func assetSourceDirectory(from urls: [URL]) -> URL? {
+    for url in urls {
+        var isDirectory: ObjCBool = false
+        guard FileManager.default.fileExists(atPath: url.path, isDirectory: &isDirectory) else {
+            continue
         }
+        let dir = isDirectory.boolValue ? url : url.deletingLastPathComponent()
+        if AssetLocator.containsAssets(dir) { return dir }
     }
+    return nil
 }
 
-// Windowed launches (Finder double-click, `Johnny story`, --fullscreen) get
-// the import dialog on first run; CLI subcommands keep the terse failure.
+// Windowed launches (Finder double-click, `Johnny story`, --fullscreen) show
+// an import window on first run; CLI subcommands keep the terse failure.
 let isWindowedLaunch = arguments.allSatisfy { $0.hasPrefix("-") || $0 == "story" }
 
-var resolvedAssetDir = locateAssets()
-if resolvedAssetDir == nil, isWindowedLaunch {
-    resolvedAssetDir = promptForAssets()
-    if resolvedAssetDir == nil { exit(0) }
-}
-
-guard let assetDir = resolvedAssetDir,
-      let library = try? ResourceLibrary(directory: assetDir) else {
+let assetDir = locateAssets()
+let library: ResourceLibrary? = assetDir.flatMap { try? ResourceLibrary(directory: $0) }
+if library == nil, !isWindowedLaunch {
     fail("could not find RESOURCE.MAP/RESOURCE.001 (set JC_ASSET_DIR or put them in ./Assets)")
 }
 
-if arguments.first == "list" {
+if arguments.first == "list", let library {
     print("TTM scripts:")
     for r in library.ttmResources {
         print("  \(r.name)")
@@ -144,6 +112,77 @@ final class FrameView: NSView, FramePresenter {
         DispatchQueue.main.async { [weak self] in
             self?.layer?.contents = image
         }
+    }
+}
+
+// MARK: - First-run import (drop target)
+
+/// Shown in the window until resource files are imported: drop the
+/// folder (or the files) anywhere, or click Choose Folder…
+final class SetupDropView: NSView {
+    var onURLsDropped: (([URL]) -> Void)?
+    var onBrowse: (() -> Void)?
+
+    override init(frame: NSRect) {
+        super.init(frame: frame)
+        wantsLayer = true
+        layer?.backgroundColor = NSColor.black.cgColor
+        registerForDraggedTypes([.fileURL])
+
+        let title = NSTextField(labelWithString: "Johnny needs the original resource files")
+        title.font = .boldSystemFont(ofSize: 18)
+        title.textColor = .white
+        title.alignment = .center
+
+        let body = NSTextField(wrappingLabelWithString: """
+        The artwork comes from the original 1992 screensaver and is still \
+        copyrighted, so it isn't bundled. Drag the folder containing \
+        RESOURCE.MAP and RESOURCE.001 here (sound0–24.wav too, if you have \
+        them) — the README explains how to extract them. Importing once \
+        also sets up the screensaver.
+        """)
+        body.font = .systemFont(ofSize: 13)
+        body.textColor = NSColor(white: 0.8, alpha: 1)
+        body.alignment = .center
+        body.preferredMaxLayoutWidth = 440
+
+        let browse = NSButton(title: "Choose Folder…", target: self, action: #selector(browse(_:)))
+        browse.keyEquivalent = "\r"
+
+        let stack = NSStackView(views: [title, body, browse])
+        stack.orientation = .vertical
+        stack.alignment = .centerX
+        stack.spacing = 16
+        stack.translatesAutoresizingMaskIntoConstraints = false
+        addSubview(stack)
+        NSLayoutConstraint.activate([
+            stack.centerXAnchor.constraint(equalTo: centerXAnchor),
+            stack.centerYAnchor.constraint(equalTo: centerYAnchor),
+            stack.widthAnchor.constraint(lessThanOrEqualTo: widthAnchor, constant: -60),
+        ])
+    }
+
+    required init?(coder: NSCoder) { fatalError() }
+
+    @objc private func browse(_ sender: NSButton) { onBrowse?() }
+
+    override func draggingEntered(_ sender: NSDraggingInfo) -> NSDragOperation {
+        layer?.backgroundColor = NSColor(white: 0.18, alpha: 1).cgColor
+        return .copy
+    }
+
+    override func draggingExited(_ sender: NSDraggingInfo?) {
+        layer?.backgroundColor = NSColor.black.cgColor
+    }
+
+    override func performDragOperation(_ sender: NSDraggingInfo) -> Bool {
+        layer?.backgroundColor = NSColor.black.cgColor
+        let urls = sender.draggingPasteboard.readObjects(
+            forClasses: [NSURL.self],
+            options: [.urlReadingFileURLsOnly: true]) as? [URL] ?? []
+        guard !urls.isEmpty else { return false }
+        onURLsDropped?(urls)
+        return true
     }
 }
 
@@ -266,8 +305,10 @@ final class DateOverrideAccessory: NSView {
 
 final class DemoAppDelegate: NSObject, NSApplicationDelegate {
     let mode: DemoMode
-    let library: ResourceLibrary
-    let soundPlayer: WavSamplePlayer
+    // Nil until the first-run import succeeds (windowed launches only).
+    var library: ResourceLibrary?
+    var soundPlayer: WavSamplePlayer?
+    var setupView: SetupDropView?
     // The story day persists across launches, like the real screensaver.
     let storyStore = UserDefaultsStoryStore(defaults: .standard)
     var window: NSWindow!
@@ -285,7 +326,7 @@ final class DemoAppDelegate: NSObject, NSApplicationDelegate {
     /// the app if it is still the current generation (not replaced).
     var engineGeneration = 0
 
-    init(mode: DemoMode, library: ResourceLibrary, soundPlayer: WavSamplePlayer) {
+    init(mode: DemoMode, library: ResourceLibrary?, soundPlayer: WavSamplePlayer?) {
         self.mode = mode
         self.library = library
         self.soundPlayer = soundPlayer
@@ -315,7 +356,73 @@ final class DemoAppDelegate: NSObject, NSApplicationDelegate {
             window.toggleFullScreen(nil)
         }
 
+        if library == nil {
+            showSetupUI()
+        } else {
+            startEngine(skipIntro: false)
+        }
+    }
+
+    // MARK: First-run import
+
+    func showSetupUI() {
+        let setup = SetupDropView(frame: frameView.bounds)
+        setup.autoresizingMask = [.width, .height]
+        setup.onURLsDropped = { [weak self] urls in
+            guard let self else { return }
+            if let dir = assetSourceDirectory(from: urls) {
+                self.importAssets(from: dir)
+            } else {
+                self.showImportError(
+                    "That doesn't contain RESOURCE.MAP and RESOURCE.001 — "
+                    + "drop the folder holding both files (or the files themselves).")
+            }
+        }
+        setup.onBrowse = { [weak self] in self?.browseForAssets() }
+        frameView.addSubview(setup)
+        setupView = setup
+        window.title = "Johnny Castaway — import resource files"
+    }
+
+    func browseForAssets() {
+        let panel = NSOpenPanel()
+        panel.canChooseDirectories = true
+        panel.canChooseFiles = false
+        panel.allowsMultipleSelection = false
+        panel.message = "Select the folder containing RESOURCE.MAP and RESOURCE.001"
+        panel.prompt = "Import"
+        panel.beginSheetModal(for: window) { [weak self] response in
+            guard let self, response == .OK, let url = panel.url else { return }
+            self.importAssets(from: url)
+        }
+    }
+
+    func importAssets(from source: URL) {
+        do {
+            try AssetLocator.importAssets(from: source)
+            guard let dir = locateAssets() else {
+                throw EngineError.fileNotFound("RESOURCE.MAP")
+            }
+            library = try ResourceLibrary(directory: dir)
+            soundPlayer = WavSamplePlayer(directory: dir)
+        } catch {
+            showImportError(
+                "Those files couldn't be imported — make sure they are the "
+                + "original RESOURCE.MAP and RESOURCE.001.\n(\(error))")
+            return
+        }
+        setupView?.removeFromSuperview()
+        setupView = nil
         startEngine(skipIntro: false)
+        updateTitle()
+    }
+
+    func showImportError(_ message: String) {
+        let alert = NSAlert()
+        alert.alertStyle = .warning
+        alert.messageText = "Import failed"
+        alert.informativeText = message
+        alert.beginSheetModal(for: window)
     }
 
     static let overrideFormatter: DateFormatter = {
@@ -325,6 +432,7 @@ final class DemoAppDelegate: NSObject, NSApplicationDelegate {
     }()
 
     func updateTitle() {
+        guard library != nil else { return }
         var title = "Johnny Castaway"
         if case .story = mode {
             title += " — day \(max(storyStore.currentDay, 1))"
@@ -344,6 +452,19 @@ final class DemoAppDelegate: NSObject, NSApplicationDelegate {
     func handleKey(_ event: NSEvent) -> NSEvent? {
         // Don't swallow keys headed for an alert (e.g. Return, T).
         if NSApp.modalWindow != nil { return event }
+        // During first-run import only window-level keys make sense.
+        if library == nil {
+            switch event.charactersIgnoringModifiers?.lowercased() {
+            case "f":
+                window.toggleFullScreen(nil)
+                return nil
+            case "q", "\u{1b}":
+                NSApp.terminate(nil)
+                return nil
+            default:
+                return event
+            }
+        }
         switch event.charactersIgnoringModifiers?.lowercased() {
         case "h", "?", "/":
             toggleHelp()
@@ -468,6 +589,7 @@ final class DemoAppDelegate: NSObject, NSApplicationDelegate {
     }
 
     func startEngine(skipIntro: Bool) {
+        guard let library else { return }
         // With a date override, give the engine a throwaway copy of the
         // story state so the pretend date can't corrupt the real arc.
         let store: StoryStateStore
@@ -573,6 +695,6 @@ app.setActivationPolicy(.regular)
 app.mainMenu = buildMainMenu()
 let delegate = DemoAppDelegate(
     mode: mode, library: library,
-    soundPlayer: WavSamplePlayer(directory: assetDir))
+    soundPlayer: assetDir.map { WavSamplePlayer(directory: $0) })
 app.delegate = delegate
 app.run()

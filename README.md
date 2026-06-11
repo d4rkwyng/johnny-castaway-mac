@@ -32,9 +32,10 @@ brew install --cask d4rkwyng/tap/johnny-castaway
 ```
 
 installs **both** the app and the screensaver. Launch **Johnny Castaway**
-from Applications once — on first run it asks for the folder with your
-RESOURCE.MAP/RESOURCE.001 ([see below](#you-must-supply-the-original-game-files))
-and that single import provisions the screensaver too. Then open
+from Applications once — on first run it asks for your
+RESOURCE.MAP/RESOURCE.001 ([see below](#you-must-supply-the-original-game-files)):
+drag the folder (or the files) onto the window, or click **Choose Folder…**.
+That single import provisions the screensaver too. Then open
 **System Settings → Screen Saver**, click **Show All** under "Other", and
 select **Johnny Castaway**.
 
@@ -101,7 +102,17 @@ cp payload/.rsrc/1043/RCDATA/SCREENANTICSDATAFILE RESOURCE.001
 ```
 
 For development, drop them into `Assets/` at the repo root (gitignored).
-The installed screensaver imports them through its configure sheet.
+The app imports them on first launch (drag & drop or Choose Folder…);
+the screensaver alone can import them through its **Options…** sheet.
+
+### Sound
+
+The resource containers hold no audio — the original played separate WAV
+samples. Both the app and the saver look for `sound0.wav` … `sound24.wav`
+next to RESOURCE.MAP and play them when present (the import copies them
+too; the saver's Options… sheet has a "Play sounds" toggle). The same
+files jc_reborn uses are in the
+[JCOS repository](https://github.com/nivs1978/Johnny-Castaway-Open-Source/tree/master/JCOS/Resources).
 
 ## Building
 
