@@ -14,6 +14,15 @@ import JohnnyEngine
 public final class WavSamplePlayer: SamplePlayer {
     private var players: [Int: AVAudioPlayer] = [:]
     private let queue = DispatchQueue(label: "net.cyduck.johnny.sound")
+    private var _isMuted = false
+
+    /// Muted players swallow play() calls — used by the saver, whose
+    /// engine also renders the Sonoma+ desktop-wallpaper companion where
+    /// audio must never play.
+    public var isMuted: Bool {
+        get { queue.sync { _isMuted } }
+        set { queue.async { self._isMuted = newValue } }
+    }
 
     /// Loads soundN.wav files from `directory`. Always succeeds; absent
     /// or unreadable files simply leave their slot silent.
@@ -31,7 +40,7 @@ public final class WavSamplePlayer: SamplePlayer {
 
     public func play(_ sampleNumber: Int) {
         queue.async { [players] in
-            guard let player = players[sampleNumber] else { return }
+            guard !self._isMuted, let player = players[sampleNumber] else { return }
             player.currentTime = 0
             player.play()
         }

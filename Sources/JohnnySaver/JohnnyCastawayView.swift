@@ -24,8 +24,16 @@ public final class JohnnyCastawayView: ScreenSaverView, FramePresenter {
 
     private var engineClock: RealTimeClock?
     private var engineThread: Thread?
+    private var soundPlayer: WavSamplePlayer?
     private var wasStarted = false
     private var occlusionObserver: NSObjectProtocol?
+
+    /// True while the actual screensaver session runs (as opposed to the
+    /// wallpaper-companion rendering of the very same view).
+    private static var screensaverEngineRunning: Bool {
+        !NSRunningApplication.runningApplications(
+            withBundleIdentifier: "com.apple.ScreenSaver.Engine").isEmpty
+    }
 
     private var treatAsPreview: Bool {
         // System Settings on Sonoma+ sometimes hands out isPreview=false
@@ -59,7 +67,25 @@ public final class JohnnyCastawayView: ScreenSaverView, FramePresenter {
                 selector: #selector(willStop(_:)),
                 name: Notification.Name("com.apple.screensaver.willstop"),
                 object: nil)
+            // The same long-lived process can transition between the
+            // muted wallpaper companion and the real screensaver.
+            DistributedNotificationCenter.default().addObserver(
+                self, selector: #selector(saverDidStart(_:)),
+                name: Notification.Name("com.apple.screensaver.didstart"),
+                object: nil)
+            DistributedNotificationCenter.default().addObserver(
+                self, selector: #selector(saverDidStop(_:)),
+                name: Notification.Name("com.apple.screensaver.didstop"),
+                object: nil)
         }
+    }
+
+    @objc private func saverDidStart(_ note: Notification) {
+        soundPlayer?.isMuted = false
+    }
+
+    @objc private func saverDidStop(_ note: Notification) {
+        soundPlayer?.isMuted = true
     }
 
     @objc private func willStop(_ note: Notification) {
@@ -91,13 +117,12 @@ public final class JohnnyCastawayView: ScreenSaverView, FramePresenter {
         super.viewWillMove(toWindow: newWindow)
         if newWindow == nil {
             stopEngine()
-        } else if wasStarted, engineThread == nil, !treatAsPreview {
-            startEngine()
         }
     }
 
     /// Same leak, second shape: the window stays attached but is ordered
     /// out or occluded (System Settings preview dismissed, display asleep).
+    /// Restarts happen here (not viewWillMove) so `window` is set.
     public override func viewDidMoveToWindow() {
         super.viewDidMoveToWindow()
         if let observer = occlusionObserver {
@@ -105,6 +130,9 @@ public final class JohnnyCastawayView: ScreenSaverView, FramePresenter {
             occlusionObserver = nil
         }
         guard let window, !treatAsPreview else { return }
+        if wasStarted, engineThread == nil {
+            startEngine()
+        }
         occlusionObserver = NotificationCenter.default.addObserver(
             forName: NSWindow.didChangeOcclusionStateNotification,
             object: window, queue: .main) { [weak self] _ in
@@ -150,8 +178,16 @@ public final class JohnnyCastawayView: ScreenSaverView, FramePresenter {
         let clock = RealTimeClock()
         engineClock = clock
 
+        // Sonoma+ also runs this same view permanently as the desktop
+        // wallpaper companion (hosted by WallpaperAgent). The hosting
+        // window looks identical in-process either way, so the only
+        // reliable signal that we're really screensaving is the
+        // ScreenSaverEngine process / its didstart notification. Animate
+        // as wallpaper, but never play audio under the user's desktop.
         let sound: WavSamplePlayer? = settings.soundEnabled
             ? WavSamplePlayer(directory: assetDir) : nil
+        sound?.isMuted = !Self.screensaverEngineRunning
+        soundPlayer = sound
 
         let store: StoryStateStore = defaults.map { UserDefaultsStoryStore(defaults: $0) }
             ?? InMemoryStoryStore()
