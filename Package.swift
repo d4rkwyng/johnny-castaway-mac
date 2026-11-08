@@ -53,6 +53,13 @@ let package = Package(
             dependencies: ["JohnnyEngine"]
         ),
 
+        // Asset import staging/validation, on synthetic files in a
+        // temporary directory.
+        .testTarget(
+            name: "JohnnyEngineAppKitTests",
+            dependencies: ["JohnnyEngineAppKit", "JohnnyEngine"]
+        ),
+
         // Tests that require the original game files; skipped unless
         // JC_ASSET_DIR points at a directory containing them.
         .testTarget(

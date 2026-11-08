@@ -61,7 +61,7 @@ public enum AssetLocator {
         let shared = saverContainerDirectory
         guard shared.standardizedFileURL != own.standardizedFileURL,
               containsAssets(shared) else { return nil }
-        try? copyAssets(from: shared, to: own)
+        try? install(from: shared, into: own)
         return containsAssets(own) ? own : shared
     }
 
@@ -69,11 +69,54 @@ public enum AssetLocator {
     /// `source` into the process's own Application Support and, best
     /// effort, the saver container — one import provisions both the
     /// app and the screensaver.
+    ///
+    /// Each destination is staged and parsed before anything is
+    /// replaced, so a failed import (missing or unparseable files)
+    /// leaves the previous install untouched.
     public static func importAssets(from source: URL) throws {
-        try copyAssets(from: source, to: processAppSupportDirectory)
+        try install(from: source, into: processAppSupportDirectory)
         let shared = saverContainerDirectory
         if shared.standardizedFileURL != processAppSupportDirectory.standardizedFileURL {
-            try? copyAssets(from: source, to: shared)
+            try? install(from: source, into: shared)
+        }
+    }
+
+    /// Stages the asset files from `source` into a temporary sibling of
+    /// `dest`, validates them by parsing with `ResourceLibrary`, then
+    /// swaps the staged directory into place atomically. On any failure
+    /// the staging directory is removed and `dest` is left as it was.
+    ///
+    /// No checksum check against the README's MD5s: those describe one
+    /// specific release, while every original release (including
+    /// localized ones) ships its own RESOURCE.MAP/RESOURCE.001. A full
+    /// parse is what the engine actually needs and rejects corrupt or
+    /// wrong files without rejecting legitimate variants.
+    static func install(from source: URL, into dest: URL) throws {
+        let fm = FileManager.default
+        let parent = dest.deletingLastPathComponent()
+        try fm.createDirectory(at: parent, withIntermediateDirectories: true)
+
+        // Same parent directory → same volume, so the final swap is a
+        // single rename.
+        let staging = parent.appendingPathComponent(
+            ".\(dest.lastPathComponent)-import-\(UUID().uuidString)")
+        try fm.createDirectory(at: staging, withIntermediateDirectories: false)
+        defer { try? fm.removeItem(at: staging) }
+
+        try copyAssets(from: source, to: staging)
+        _ = try ResourceLibrary(directory: staging)
+
+        if fm.fileExists(atPath: dest.path) {
+            // Atomically exchange the two directories; the old install
+            // ends up in `staging` and is removed by the defer.
+            guard renamex_np(staging.path, dest.path, UInt32(RENAME_SWAP)) == 0 else {
+                throw CocoaError(.fileWriteUnknown, userInfo: [
+                    NSFilePathErrorKey: dest.path,
+                    NSUnderlyingErrorKey: POSIXError(POSIXErrorCode(rawValue: errno) ?? .EIO),
+                ])
+            }
+        } else {
+            try fm.moveItem(at: staging, to: dest)
         }
     }
 
