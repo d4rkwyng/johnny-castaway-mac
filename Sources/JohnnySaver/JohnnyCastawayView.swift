@@ -24,6 +24,12 @@ public final class JohnnyCastawayView: ScreenSaverView, FramePresenter {
 
     private var engineClock: RealTimeClock?
     private var engineThread: Thread?
+    /// Bumped on every start/stop so a finishing engine thread only
+    /// clears state that still belongs to it.
+    private var engineGeneration = 0
+    /// Set once an engine has been launched; later starts are restarts
+    /// (view re-shown, un-occluded) and skip the title-card intro.
+    private var introPlayed = false
     private var soundPlayer: WavSamplePlayer?
     private var wasStarted = false
     private var occlusionObserver: NSObjectProtocol?
@@ -149,6 +155,7 @@ public final class JohnnyCastawayView: ScreenSaverView, FramePresenter {
         engineClock?.cancel()
         engineClock = nil
         engineThread = nil
+        engineGeneration += 1
     }
 
     public override func stopAnimation() {
@@ -200,11 +207,27 @@ public final class JohnnyCastawayView: ScreenSaverView, FramePresenter {
             rng: SeededRandom(),  // distinct seed per view/monitor
             storyStore: store)
 
-        let thread = Thread {
+        // Only the first start in this view plays the intro; restarts
+        // resume the story directly, as the demo app does.
+        let skipIntro = introPlayed
+        introPlayed = true
+        engineGeneration += 1
+        let generation = engineGeneration
+
+        let thread = Thread { [weak self] in
             do {
-                try engine.storyPlay()
+                try engine.storyPlay(skipIntro: skipIntro)
+            } catch is EngineCancelled {
+                // Teardown or stop — nothing to do.
             } catch {
-                // EngineCancelled on teardown — nothing to do.
+                NSLog("JohnnyCastaway: engine stopped with error: %@", String(describing: error))
+            }
+            // Clear our handle so a later visibility change can start a
+            // fresh engine instead of seeing a dead thread as running.
+            DispatchQueue.main.async {
+                guard let self, self.engineGeneration == generation else { return }
+                self.engineClock = nil
+                self.engineThread = nil
             }
         }
         thread.name = "JohnnyEngine"
