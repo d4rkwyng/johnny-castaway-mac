@@ -68,7 +68,6 @@ final class ConfigureSheet: NSObject {
         let doneButton = NSButton(title: "Done", target: self, action: #selector(close(_:)))
         doneButton.keyEquivalent = "\r"
 
-        statusLabel.textColor = .secondaryLabelColor
         statusLabel.font = .systemFont(ofSize: 11)
         statusLabel.lineBreakMode = .byWordWrapping
         statusLabel.maximumNumberOfLines = 3
@@ -92,6 +91,7 @@ final class ConfigureSheet: NSObject {
     }
 
     private func refreshStatus() {
+        statusLabel.textColor = .secondaryLabelColor
         if AssetLocator.find() != nil {
             statusLabel.stringValue = "Resource files imported — Johnny is ready."
         } else {
@@ -115,20 +115,26 @@ final class ConfigureSheet: NSObject {
 
         panel.beginSheetModal(for: window) { [weak self] response in
             guard let self, response == .OK, let url = panel.url else { return }
+            // Set the result message last: calling refreshStatus() after
+            // it would immediately overwrite the outcome.
             do {
+                // importAssets parses the staged files before installing.
                 try AssetLocator.importAssets(from: url)
-                // Validate by parsing.
                 _ = try ResourceLibrary(directory: AssetLocator.saverContainerDirectory)
-                self.statusLabel.stringValue = "Imported successfully."
+                self.statusLabel.textColor = .secondaryLabelColor
+                self.statusLabel.stringValue = "Imported successfully — Johnny is ready."
             } catch {
-                self.statusLabel.stringValue = "Import failed: \(error)"
+                self.statusLabel.textColor = .systemRed
+                let kept = AssetLocator.find() != nil
+                    ? " The previously imported files were kept." : ""
+                self.statusLabel.stringValue = "Import failed: \(error).\(kept)"
             }
-            self.refreshStatus()
         }
     }
 
     @objc private func resetStory(_ sender: NSButton) {
         settings.resetStory()
+        statusLabel.textColor = .secondaryLabelColor
         statusLabel.stringValue = "Story reset — Johnny starts over on day 1."
     }
 
