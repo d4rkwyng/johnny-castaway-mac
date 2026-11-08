@@ -83,6 +83,67 @@ private struct BitWriter {
         #expect(out == [0x41, 0x42, 0x41, 0x42, 0x43])
     }
 
+    /// Self-referencing entry without a reset: code 258 is first used via
+    /// the KwKwK path before it exists, so entry 258 is later created with
+    /// prefix 258. Decoding 258 again then chains forever. Before the bound
+    /// this overran the 4097-byte decode stack and trapped.
+    @Test func selfReferencingEntryThrows() {
+        var w = BitWriter()
+        for code in [65, 258, 257, 258] { w.write(code, bits: 9) }
+        w.bytes += [0, 0]
+
+        var reader = ByteReader(w.bytes)
+        #expect(throws: EngineError.self) {
+            try Decompressor.lzw(&reader, inSize: w.bytes.count, outSize: 100_000)
+        }
+    }
+
+    /// Reset-then-loop: after code 256 resets the table, entry 257 still
+    /// holds stale data from before the reset. Rebuilding the table lets
+    /// entry 257 be re-created with itself as prefix, and the next 257
+    /// cycles. Before the bound this trapped on the decode stack.
+    @Test func resetThenCyclicChainThrows() {
+        var w = BitWriter()
+        w.write(65, bits: 9)
+        w.write(66, bits: 9)
+        w.write(256, bits: 9)
+        // Decoder realigns after a reset: bitpos is 18 here, so it skips
+        // (72 - (17 % 72)) - 1 = 54 bits.
+        w.write(0, bits: 54)
+        for code in [257, 258, 257] { w.write(code, bits: 9) }
+        w.bytes += [0, 0]
+
+        var reader = ByteReader(w.bytes)
+        #expect(throws: EngineError.self) {
+            try Decompressor.lzw(&reader, inSize: w.bytes.count, outSize: 100_000)
+        }
+    }
+
+    /// The longest legitimate chain (every code a KwKwK extension of the
+    /// previous one, filling the table up to 4095 across all bit widths)
+    /// must still decode: the bound must not reject valid data.
+    @Test func longestValidChainDecodes() throws {
+        var w = BitWriter()
+        var nBits = 9
+        var freeEntry = 257
+        w.write(65, bits: nBits)
+        var expected = 1
+        for code in 257...4095 {
+            w.write(code, bits: nBits)
+            expected += code - 255
+            if freeEntry < 4096 {
+                freeEntry += 1
+                if freeEntry >= (1 << nBits) && nBits < 12 { nBits += 1 }
+            }
+        }
+        w.bytes += [0, 0]
+
+        var reader = ByteReader(w.bytes)
+        let out = try Decompressor.lzw(&reader, inSize: w.bytes.count, outSize: expected)
+        #expect(out.count == expected)
+        #expect(out.allSatisfy { $0 == 65 })
+    }
+
     @Test func zeroOutputThrows() {
         var reader = ByteReader([0x00])
         #expect(throws: (any Error).self) {

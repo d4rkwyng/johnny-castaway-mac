@@ -133,15 +133,26 @@ public enum Decompressor {
             } else {
                 var code = Int(newcode)
 
+                // The stack is fully drained after every code, so it starts
+                // empty here. A valid chain is at most one KwKwK byte plus
+                // 3840 table entries plus the root byte, which always fits
+                // the 4097-byte stack. Corrupt input (e.g. stale entries left
+                // after a table reset whose prefixes form a cycle) can chain
+                // indefinitely; bound every push and throw instead of
+                // trapping on an out-of-range write.
                 if code >= freeEntry {
-                    if stackPtr > 4095 { break }
+                    guard stackPtr < decodeStack.count else {
+                        throw EngineError.badData("LZW decode stack overflow (corrupt data)")
+                    }
                     decodeStack[stackPtr] = UInt8(truncatingIfNeeded: lastbyte)
                     stackPtr += 1
                     code = Int(oldcode)
                 }
 
                 while code > 255 {
-                    if code > 4095 { break }
+                    guard code <= 4095, stackPtr < decodeStack.count - 1 else {
+                        throw EngineError.badData("LZW prefix chain too long or cyclic (corrupt data)")
+                    }
                     decodeStack[stackPtr] = append[code]
                     stackPtr += 1
                     code = Int(prefix[code])
