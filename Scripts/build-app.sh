@@ -16,7 +16,7 @@ cp "$BUILD_DIR/JohnnyDemo" "$APP/Contents/MacOS/Johnny Castaway"
 swift Scripts/make-icon.swift "$APP/Contents/Resources/AppIcon.icns"
 
 # Version from the latest tag (v0.2.0 -> 0.2.0); build number = commit count.
-VERSION=$(git describe --tags --abbrev=0 2>/dev/null | sed 's/^v//')
+VERSION=$({ git describe --tags --abbrev=0 2>/dev/null || true; } | sed 's/^v//')
 VERSION=${VERSION:-0.0.0}
 BUILD_NUMBER=$(git rev-list --count HEAD 2>/dev/null || echo 1)
 

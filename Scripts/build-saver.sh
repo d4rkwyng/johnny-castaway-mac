@@ -21,7 +21,7 @@ cp Sources/JohnnySaver/Info.plist "$SAVER/Contents/Info.plist"
 # Version from the latest tag (v0.2.0 -> 0.2.0); build number = commit
 # count. Same derivation as build-app.sh; the checked-in plist's values
 # are only placeholders.
-VERSION=$(git describe --tags --abbrev=0 2>/dev/null | sed 's/^v//')
+VERSION=$({ git describe --tags --abbrev=0 2>/dev/null || true; } | sed 's/^v//')
 VERSION=${VERSION:-0.0.0}
 BUILD_NUMBER=$(git rev-list --count HEAD 2>/dev/null || echo 1)
 /usr/libexec/PlistBuddy \
