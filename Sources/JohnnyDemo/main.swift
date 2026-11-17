@@ -714,8 +714,15 @@ final class DemoAppDelegate: NSObject, NSApplicationDelegate {
         let centered = NSMutableParagraphStyle()
         centered.alignment = .center
         let credits = NSMutableAttributedString(
-            string: "A native recreation of Screen Antics: Johnny Castaway.\n"
-                + "Made by d4rkwyng\n",
+            string: """
+            A native recreation of Screen Antics: Johnny Castaway \
+            (© 1992 Sierra On-Line / Dynamix — not affiliated).
+            Engine ported from Jérémie Guillaume's jc_reborn.
+            GPL-3.0 — requires the original RESOURCE.MAP / RESOURCE.001.
+
+            Made by d4rkwyng
+
+            """,
             attributes: body)
         credits.append(NSAttributedString(
             string: "github.com/d4rkwyng/johnny-castaway-mac",
@@ -723,10 +730,6 @@ final class DemoAppDelegate: NSObject, NSApplicationDelegate {
                 .font: NSFont.systemFont(ofSize: 11),
                 .link: AppLinks.repo,
             ]))
-        credits.append(NSAttributedString(
-            string: "\n\nGPL-3.0 — engine ported from jc_reborn. "
-                + "Not affiliated with Sierra/Dynamix.",
-            attributes: body))
         credits.addAttribute(.paragraphStyle, value: centered,
                              range: NSRange(location: 0, length: credits.length))
         NSApp.orderFrontStandardAboutPanel(options: [
@@ -734,9 +737,6 @@ final class DemoAppDelegate: NSObject, NSApplicationDelegate {
             // Marketing version only: an empty build version suppresses the
             // "(build)" suffix next to "Version x.y.z".
             .version: "",
-            // The attribution line is in the credits; don't repeat
-            // NSHumanReadableCopyright underneath it.
-            NSApplication.AboutPanelOptionKey(rawValue: "Copyright"): "",
         ])
     }
 
