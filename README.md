@@ -1,5 +1,14 @@
 # Johnny Castaway for macOS
 
+<p>
+<a href="https://github.com/d4rkwyng/johnny-castaway-mac/releases/latest"><img alt="Latest release" src="https://img.shields.io/github/v/release/d4rkwyng/johnny-castaway-mac?label=release"></a>
+<a href="https://github.com/d4rkwyng/homebrew-tap/blob/main/Casks/johnny-castaway.rb"><img alt="Homebrew cask: d4rkwyng/tap/johnny-castaway" src="https://img.shields.io/badge/brew-d4rkwyng%2Ftap%2Fjohnny--castaway-orange"></a>
+<img alt="macOS 14+" src="https://img.shields.io/badge/macOS-14%2B-blue">
+<img alt="Apple silicon only (arm64)" src="https://img.shields.io/badge/Apple%20silicon-arm64%20only-lightgrey">
+<img alt="Signed and notarized" src="https://img.shields.io/badge/signed-notarized-brightgreen">
+<a href="LICENSE"><img alt="License: GPL-3.0" src="https://img.shields.io/github/license/d4rkwyng/johnny-castaway-mac"></a>
+</p>
+
 A native Swift recreation of **Screen Antics: Johnny Castaway** — the classic
 1992 Sierra On-Line / Dynamix screensaver — for modern macOS (Sonoma and
 later). Johnny lives on his tiny desert island, builds his raft over an
