@@ -707,19 +707,41 @@ final class DemoAppDelegate: NSObject, NSApplicationDelegate {
     }
 
     @objc func showAbout() {
-        let credits = NSAttributedString(
-            string: """
-            A native recreation of Screen Antics: Johnny Castaway \
-            (© 1992 Sierra On-Line / Dynamix — not affiliated).
-            Engine ported from Jérémie Guillaume's jc_reborn.
-            GPL-3.0 — requires the original RESOURCE.MAP / RESOURCE.001.
-            """,
+        let body: [NSAttributedString.Key: Any] = [
+            .font: NSFont.systemFont(ofSize: 11),
+            .foregroundColor: NSColor.secondaryLabelColor,
+        ]
+        let centered = NSMutableParagraphStyle()
+        centered.alignment = .center
+        let credits = NSMutableAttributedString(
+            string: "A native recreation of Screen Antics: Johnny Castaway.\n"
+                + "Made by d4rkwyng\n",
+            attributes: body)
+        credits.append(NSAttributedString(
+            string: "github.com/d4rkwyng/johnny-castaway-mac",
             attributes: [
                 .font: NSFont.systemFont(ofSize: 11),
-                .foregroundColor: NSColor.secondaryLabelColor,
-            ])
-        NSApp.orderFrontStandardAboutPanel(options: [.credits: credits])
+                .link: AppLinks.repo,
+            ]))
+        credits.append(NSAttributedString(
+            string: "\n\nGPL-3.0 — engine ported from jc_reborn. "
+                + "Not affiliated with Sierra/Dynamix.",
+            attributes: body))
+        credits.addAttribute(.paragraphStyle, value: centered,
+                             range: NSRange(location: 0, length: credits.length))
+        NSApp.orderFrontStandardAboutPanel(options: [
+            .credits: credits,
+            // Marketing version only: an empty build version suppresses the
+            // "(build)" suffix next to "Version x.y.z".
+            .version: "",
+            // The attribution line is in the credits; don't repeat
+            // NSHumanReadableCopyright underneath it.
+            NSApplication.AboutPanelOptionKey(rawValue: "Copyright"): "",
+        ])
     }
+
+    @objc func openRepo() { NSWorkspace.shared.open(AppLinks.repo) }
+    @objc func reportIssue() { NSWorkspace.shared.open(AppLinks.newIssue) }
 
     func applicationWillTerminate(_ notification: Notification) {
         engineClock.cancel()
@@ -740,7 +762,24 @@ func buildMainMenu() -> NSMenu {
     appMenu.addItem(NSMenuItem(
         title: "Quit Johnny Castaway",
         action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q"))
+
+    let helpItem = NSMenuItem()
+    main.addItem(helpItem)
+    let helpMenu = NSMenu(title: "Help")
+    helpItem.submenu = helpMenu
+    helpMenu.addItem(NSMenuItem(
+        title: "Johnny Castaway on GitHub",
+        action: #selector(DemoAppDelegate.openRepo), keyEquivalent: ""))
+    helpMenu.addItem(NSMenuItem(
+        title: "Report an Issue…",
+        action: #selector(DemoAppDelegate.reportIssue), keyEquivalent: ""))
+    NSApp.helpMenu = helpMenu
     return main
+}
+
+enum AppLinks {
+    static let repo = URL(string: "https://github.com/d4rkwyng/johnny-castaway-mac")!
+    static let newIssue = URL(string: "https://github.com/d4rkwyng/johnny-castaway-mac/issues/new")!
 }
 
 let app = NSApplication.shared

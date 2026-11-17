@@ -15,10 +15,10 @@ mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
 cp "$BUILD_DIR/JohnnyDemo" "$APP/Contents/MacOS/Johnny Castaway"
 swift Scripts/make-icon.swift "$APP/Contents/Resources/AppIcon.icns"
 
-# Version from the latest tag (v0.2.0 -> 0.2.0); build number = commit count.
+# Version from the latest tag (v0.2.0 -> 0.2.0). CFBundleVersion is set to the
+# same string so the About panel shows just "Version 0.2.0", no "(build)".
 VERSION=$({ git describe --tags --abbrev=0 2>/dev/null || true; } | sed 's/^v//')
 VERSION=${VERSION:-0.0.0}
-BUILD_NUMBER=$(git rev-list --count HEAD 2>/dev/null || echo 1)
 
 cat > "$APP/Contents/Info.plist" <<PLIST
 <?xml version="1.0" encoding="UTF-8"?>
@@ -38,7 +38,7 @@ cat > "$APP/Contents/Info.plist" <<PLIST
     <key>CFBundleShortVersionString</key>
     <string>$VERSION</string>
     <key>CFBundleVersion</key>
-    <string>$BUILD_NUMBER</string>
+    <string>$VERSION</string>
     <key>LSMinimumSystemVersion</key>
     <string>14.0</string>
     <key>NSHighResolutionCapable</key>
