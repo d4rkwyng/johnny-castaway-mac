@@ -29,8 +29,11 @@ VERSION=${VERSION:-0.0.0}
     "$SAVER/Contents/Info.plist"
 cp "$DYLIB" "$SAVER/Contents/MacOS/JohnnyCastaway"
 
-# The bundle executable must not advertise a dylib install name.
-install_name_tool -id "" "$SAVER/Contents/MacOS/JohnnyCastaway" 2>/dev/null || true
+# The copied SwiftPM product is an MH_DYLIB, so it still has LC_ID_DYLIB.
+# An empty install name is rejected by dyld on macOS 27 (issue #1).
+install_name_tool -id "@rpath/JohnnyCastaway" "$SAVER/Contents/MacOS/JohnnyCastaway"
+ID=$(otool -D "$SAVER/Contents/MacOS/JohnnyCastaway" | sed -n "2p")
+[[ -n "$ID" ]] || { echo "error: empty LC_ID_DYLIB install name" >&2; exit 1; }
 
 # Ad-hoc signature (arm64 requires a signature to load at all).
 # Set CODESIGN_ID to a Developer ID for distribution.
